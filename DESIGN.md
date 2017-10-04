@@ -4,7 +4,7 @@ Mjölnir is divided up into a few pieces, [controllers](#controller), [agents](#
 
 ## Controller
 
-The controller connects all of the different pieces together, and hosts the [plugins](plugins) so that the [agents](#agents) can download them as needed. In addition to connecting things, the controller(s) control what aactions are taken from the alerting inputs.
+The controller connects all of the different pieces together, and hosts the [plugins](plugins) so that the [agents](#agents) can download them as needed. In addition to connecting things, the controller(s) control what actions are taken from the alerting inputs.
 
 ## Agents
 
