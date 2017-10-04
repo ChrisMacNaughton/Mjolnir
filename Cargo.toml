@@ -4,5 +4,9 @@ version = "0.1.0"
 authors = [
     "Chris MacNaughton <chris@centaurisolutions.nl>",
 ]
-license = "AGPLv3"
+license = "AGPL-3.0"
+description = "Mjölnir is a tool to manage large numbers of servers."
+homepage = "https://github.com/ChrisMacNaughton/Mjolnir"
+repository = "https://github.com/ChrisMacNaughton/Mjolnir.git"
+
 [dependencies]
