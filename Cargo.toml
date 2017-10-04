@@ -1,0 +1,8 @@
+[package]
+name = "mjolnir"
+version = "0.1.0"
+authors = [
+    "Chris MacNaughton <chris@centaurisolutions.nl>",
+]
+license = "AGPLv3"
+[dependencies]
