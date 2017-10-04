@@ -1,11 +1,15 @@
 [package]
-name = "mjolnir"
+name = "api"
 version = "0.1.0"
 authors = [
     "Chris MacNaughton <chris@centaurisolutions.nl>",
 ]
 license = "AGPLv3"
-[workspace]
+build = "build.rs"
+
+[build-dependencies]
+protoc-rust = "*" 
+protoc = "*" 
 
 [dependencies]
-api = { path = "api"}
+protobuf = "*" 

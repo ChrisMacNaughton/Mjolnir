@@ -1,0 +1,20 @@
+syntax = "proto2";
+option optimize_for = SPEED;
+
+package Mjolnir;
+
+// Controller asks for remediation
+message RemediationRequest {
+  required string plugin = 1;
+}
+
+// Agent response with result
+message RemediationResult {
+  required ResultType result = 1;
+  optional string error_msg = 2;
+  enum ResultType{
+    OK = 0;
+    ERR = 1;
+  }
+}
+
