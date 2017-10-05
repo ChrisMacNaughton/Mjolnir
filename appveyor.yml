@@ -108,7 +108,7 @@ matrix:
 install:
   - if not exist C:\protobuf-3.0.0 (
       cd C:\ &&
-      curl -L -O https://github.com/google/protobuf/releases/download/v3.0.0/protobuf-3.0.0.zip &&
+      curl -L -o protobuf-3.0.0.zip https://github.com/google/protobuf/archive/v3.0.0.zip &&
       7z x protobuf-3.0.0.zip &&
       cd protobuf-3.0.0\vsprojects &&
       devenv protobuf.sln /Upgrade &&
