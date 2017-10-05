@@ -3,6 +3,10 @@ dist: trusty
 
 language: rust
 
+cache:
+  cargo: true
+  apt: true
+
 rust:
   - stable
   - beta
@@ -14,19 +18,21 @@ addons:
       - libcurl4-openssl-dev
       - libelf-dev
       - libdw-dev
-      - libprotobuf-dev
       - binutils-dev
+      # Dependencies for Mjolnir
       - protobuf-compiler
-
+      - libprotobuf-dev
 install:
-  - cargo install cargo-travis
+  - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
 script:
   - cargo build --all
   - cargo test --all
 
-after_success:
-  - cargo coveralls --exclude-pattern tests/ --all
+after_success: |
+  if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
+    cargo coveralls --exclude-pattern tests/ --all;
+  fi
 
 
