@@ -3,6 +3,7 @@ name = "mjolnir"
 version = "0.1.0"
 authors = [
     "Chris MacNaughton <chris@centaurisolutions.nl>",
+    "Chris Holcombe <xfactor973@gmail.com>",
 ]
 license = "AGPL-3.0"
 description = "Mjölnir is a tool to manage large numbers of servers."
@@ -11,3 +12,6 @@ repository = "https://github.com/ChrisMacNaughton/Mjolnir.git"
 
 [dependencies]
 api = { path = "api"}
+
+[workspace]
+members = [ "api" ]

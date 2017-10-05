@@ -6,6 +6,10 @@
 # Rust needs at least Visual Studio 2013 Appveyor OS for MSVC targets.
 os: Visual Studio 2015
 
+cache:
+  - C:\protobuf-2.6.1
+  - C:\Users\appveyor\.cargo
+
 ## Build Matrix ##
 
 # This configuration will setup a build for each channel & target combination (12 windows
@@ -102,6 +106,13 @@ matrix:
 # For simple configurations, instead of using the build matrix, you can simply set the
 # default-toolchain and default-host manually here.
 install:
+  - if not exist C:\protobuf-3.0.0 (
+      cd C:\ &&
+      curl -L -O https://github.com/google/protobuf/releases/download/v3.0.0/protobuf-3.0.0.zip &&
+      7z x protobuf-3.0.0.zip &&
+      cd protobuf-3.0.0\vsprojects &&
+      devenv protobuf.sln /Upgrade &&
+      msbuild protobuf.sln /t:libprotobuf;libprotoc;protoc /p:Configuration="Release" /p:Platform="Win32" /p:BuildProjectReferences=false)
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
   - rustup-init -yv --default-toolchain %channel% --default-host %target%
   - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
@@ -109,13 +120,11 @@ install:
   - cargo -vV
 
 ## Build Script ##
-
-# 'cargo test' takes care of building for us, so disable Appveyor's build stage. This prevents
-# the "directory does not contain a project or solution file" error.
-build: false
+build_script:
+  - cargo build --all --verbose %cargoflags%
 
 # Uses 'cargo test' to run tests and build. Alternatively, the project may call compiled programs
-#directly or perform other testing commands. Rust will automatically be placed in the PATH
+# directly or perform other testing commands. Rust will automatically be placed in the PATH
 # environment variable.
 test_script:
   - cargo test --verbose %cargoflags%
