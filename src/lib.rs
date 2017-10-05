@@ -4,7 +4,3 @@ mod tests {
     fn it_works() {
     }
 }
-
-fn main() {
-    println!("Welcome to Mjölnir");
-}
