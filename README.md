@@ -7,4 +7,4 @@
 
 Mjölnir is a tool to manage large numbers of servers.
 
-See [the design document](DESIGN.MD) to learn about the architecture and design of Mjölnir.
+See [the design document](https://github.com/ChrisMacNaughton/Mjolnir/blob/master/DESIGN.md) to learn about the architecture and design of Mjölnir.
