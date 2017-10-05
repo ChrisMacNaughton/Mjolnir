@@ -18,10 +18,11 @@ addons:
       - libcurl4-openssl-dev
       - libelf-dev
       - libdw-dev
-      - libprotobuf-dev
+      - libbfd-dev
       - binutils-dev
+      # Dependencies for Mjolnir
       - protobuf-compiler
-
+      - libprotobuf-dev
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
