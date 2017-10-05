@@ -14,4 +14,4 @@ repository = "https://github.com/ChrisMacNaughton/Mjolnir.git"
 api = { path = "api"}
 
 [workspace]
-members = [ "api" ]
+members = [ "api", "mjolnird" ]
