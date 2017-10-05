@@ -1,0 +1,16 @@
+[package]
+name = "api"
+version = "0.1.0"
+authors = [
+    "Chris MacNaughton <chris@centaurisolutions.nl>",
+    "Chris Holcombe <xfactor973@gmail.com>",
+]
+license = "AGPL-3.0"
+build = "build.rs"
+
+[build-dependencies]
+protoc-rust = "1.4" 
+protoc = "1.4" 
+
+[dependencies]
+protobuf = "1.4" 

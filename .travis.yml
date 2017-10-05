@@ -14,7 +14,9 @@ addons:
       - libcurl4-openssl-dev
       - libelf-dev
       - libdw-dev
+      - libprotobuf-dev
       - binutils-dev
+      - protobuf-compiler
 
 install:
   - cargo install cargo-travis
