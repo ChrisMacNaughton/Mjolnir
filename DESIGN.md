@@ -1,10 +1,10 @@
 # Mjölnir
 
-Mjölnir is divided up into a few pieces, [controllers](#controller), [agents](#agents), and [plpugins](plugins). These parts are explained in more detail below.
+Mjölnir is divided up into a few pieces, [controllers](#controller), [agents](#agents), and [plugins](plugins). These parts are explained in more detail below.
 
 ## Controller
 
-The controller connects all of the different pieces together, and hosts the [plpugins](plugins) so that the [agents](#agents) can download them as needed. In addition to connecting things, the controller(s) control what aactions are taken from the alerting inputs.
+The controller connects all of the different pieces together, and hosts the [plugins](plugins) so that the [agents](#agents) can download them as needed. In addition to connecting things, the controller(s) control what actions are taken from the alerting inputs.
 
 ## Agents
 
