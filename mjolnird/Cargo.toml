@@ -5,3 +5,4 @@ authors = ["Chris MacNaughton <chris@centaurisolutions.nl>"]
 
 [dependencies]
 mjolnir = { path = ".."}
+clap = "2.26"
