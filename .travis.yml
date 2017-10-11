@@ -32,7 +32,7 @@ script:
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/ --all;
+    cargo coveralls --exclude-pattern tests/,api/src/service.rs --all
   fi
 
 
