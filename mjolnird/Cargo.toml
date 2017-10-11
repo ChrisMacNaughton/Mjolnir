@@ -6,3 +6,5 @@ authors = ["Chris MacNaughton <chris@centaurisolutions.nl>"]
 [dependencies]
 mjolnir = { path = ".."}
 clap = "2.26"
+hyper = "*"
+service-fn = { git = "https://github.com/tokio-rs/service-fn" }
