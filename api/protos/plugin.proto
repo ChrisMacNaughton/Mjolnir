@@ -1,5 +1,8 @@
+
 syntax = "proto2";
 option optimize_for = SPEED;
+
+import "protos/agent.proto";
 
 package Mjolnir;
 
@@ -16,27 +19,20 @@ message RemediationResult {
     OK = 0;
     ERR = 1;
   }
+  repeated Alert alerts = 3;
 }
-
 
 // TODO: Move these to their own crate
 message Alert {
   required string name = 1;
 }
 
-message Register {
+message Discover {
   required string name = 1;
   optional string author = 2;
   optional string version = 3;
-  // alerts that it handles
+  // alerts that it generates
   repeated Alert alerts = 4;
-}
-
-enum Op {
-  RegisterPlugin = 1;
-  RemovePlugin = 2;
-}
-
-message Operation {
-  required Op op_type = 1;
+  // actions that it can take
+  repeated RemediationRequest actions = 5;
 }

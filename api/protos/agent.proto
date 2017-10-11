@@ -1,0 +1,11 @@
+syntax = "proto2";
+option optimize_for = SPEED;
+
+package Mjolnir;
+
+
+// Agents register themselves with a controller
+message Register {
+  required string ip = 1;
+  required int32 port = 2;
+}

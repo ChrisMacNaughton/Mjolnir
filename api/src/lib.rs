@@ -1,3 +1,4 @@
 extern crate protobuf;
 
-pub mod service;
+pub mod agent;
+pub mod plugin;
