@@ -1,17 +1,13 @@
 #[macro_use] extern crate clap;
 extern crate hyper;
-extern crate service_fn;
+extern crate futures;
+extern crate tokio_core;
 extern crate mjolnir;
 
-use std::net::SocketAddr;
-
-use hyper::header::{ContentLength, ContentType};
-use hyper::server::{Http, Response};
-use service_fn::service_fn;
-
 mod config;
+mod server;
 
-use config::{Config, Mode};
+use config::Config;
 
 fn main() {
     println!("Welcome to Mjölnir");
@@ -19,17 +15,5 @@ fn main() {
     let config = Config::get_config();
     println!("About to start with {:?}", config);
 
-    let _ = bind(config.bind_address);
-}
-
-fn bind(addr: SocketAddr) -> Result<(), hyper::Error> {
-    let hello = || Ok(service_fn(|_req|{
-        Ok(Response::<hyper::Body>::new()
-            .with_header(ContentLength(5))
-            .with_header(ContentType::plaintext())
-            .with_body("Hello"))
-    }));
-
-    let server = Http::new().bind(&addr, hello)?;
-    server.run()
+    server::bind(&config).expect("Couldn't bind to the specified port");
 }
