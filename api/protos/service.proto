@@ -18,3 +18,25 @@ message RemediationResult {
   }
 }
 
+
+// TODO: Move these to their own crate
+message Alert {
+  required string name = 1;
+}
+
+message Register {
+  required string name = 1;
+  optional string author = 2;
+  optional string version = 3;
+  // alerts that it handles
+  repeated Alert alerts = 4;
+}
+
+enum Op {
+  RegisterPlugin = 1;
+  RemovePlugin = 2;
+}
+
+message Operation {
+  required Op op_type = 1;
+}
