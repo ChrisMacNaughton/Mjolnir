@@ -1,14 +1,23 @@
 #[macro_use] extern crate clap;
+extern crate hyper;
+extern crate service_fn;
 extern crate mjolnir;
 
 use std::net::SocketAddr;
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, SubCommand};
+use hyper::header::{ContentLength, ContentType};
+use hyper::server::{Http, Response};
+use service_fn::service_fn;
+
 
 fn main() {
     println!("Welcome to Mjölnir");
     
     let config = get_config();
     println!("About to start with {:?}", config);
+
+
+    let _ = bind(config.bind_address);
 }
 
 #[derive(Debug)]
@@ -50,7 +59,7 @@ fn get_config() -> Config {
         ).get_matches();
 
         let mode = match matches.subcommand() {
-            ("master", Some(master_matches)) => {
+            ("master", Some(_master_matches)) => {
                 Mode::Master
             }
             ("agent", Some(agent_matches)) => {
@@ -73,4 +82,16 @@ fn get_config() -> Config {
             bind_address: address,
             mode: mode,
         }
+}
+
+fn bind(addr: SocketAddr) -> Result<(), hyper::Error> {
+    let hello = || Ok(service_fn(|_req|{
+        Ok(Response::<hyper::Body>::new()
+            .with_header(ContentLength(5))
+            .with_header(ContentType::plaintext())
+            .with_body("Hello"))
+    }));
+
+    let server = Http::new().bind(&addr, hello)?;
+    server.run()
 }
