@@ -85,7 +85,7 @@ impl<'a, 'b> Config {
 
     fn from_args(matches: ArgMatches) -> Config {
         let mode = match matches.subcommand() {
-            ("master", Some(master_matches)) => {
+            ("master", Some(_master_matches)) => {
                 Mode::Master
             }
             ("agent", Some(agent_matches)) => {
