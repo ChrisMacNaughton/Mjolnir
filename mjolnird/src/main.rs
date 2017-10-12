@@ -2,7 +2,10 @@
 extern crate hyper;
 extern crate futures;
 extern crate tokio_core;
+extern crate protobuf;
+// workspace members
 extern crate mjolnir;
+extern crate api;
 
 mod config;
 mod server;

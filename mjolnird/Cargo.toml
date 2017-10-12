@@ -4,8 +4,10 @@ version = "0.1.0"
 authors = ["Chris MacNaughton <chris@centaurisolutions.nl>"]
 
 [dependencies]
+api = { path = "../api"}
 mjolnir = { path = ".."}
 clap = "2.26"
 futures = "0.1.16"
 hyper = "0.11.6"
 tokio-core = "0.1"
+protobuf = "1.4" 
