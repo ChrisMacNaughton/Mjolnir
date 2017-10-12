@@ -19,7 +19,7 @@ use protobuf::core::parse_from_bytes;
 use api;
 use config::{Config, Mode};
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Master {
     agents: Arc<Mutex<Vec<SocketAddr>>>
 }
@@ -52,7 +52,6 @@ impl Service for Master {
         // And returning an 'ok' Future, which means it's ready
         // immediately, and build a Response with the 'PHRASE' body.
         
-
         let phrase = "Hello, from Master";
         
         match (req.method(), req.path()) {
@@ -65,16 +64,25 @@ impl Service for Master {
                 Box::new(futures::future::ok(response))
             },
             (&Method::Post, "/register") => {
+                let agents_arc = self.agents.clone();
+                let agent_ip = req.remote_addr().unwrap().ip();
                 Box::new(
-                    req.body().concat2().map(|body| {
+                    req.body().concat2().map(move |body| {
                         let mut response: Response<Box<Stream<Item=Chunk, Error=Self::Error>>> = Response::new();
                         // println!("Body: \n{}", body.wait().unwrap());
                         println!("body: {}", to_hex_string(&body));
                         match parse_from_bytes::<api::agent::Register>(&body) {
-                            Ok(agent) => {
+                            Ok(mut agent) => {
+                                agent.set_ip(format!("{}", agent_ip));
+                                let mut agents = agents_arc.lock().unwrap();
+                                let addr = SocketAddr::new(agent.get_ip().parse().unwrap(), agent.get_port() as u16);
+                                if ! agents.contains(&addr) {
+                                    agents.push(addr);
+                                }
                                 response.set_status(StatusCode::ImATeapot);
                                 // TODO save/update this agent into the database
                                 println!("Registered: {:?}", agent);
+                                println!("We know about {} agents", agents.len());
                             },
                             Err(e) => {
                                 println!("Failed to parse_from_bytes {:?}", e);
@@ -97,7 +105,10 @@ impl Service for Master {
 
 impl Master {
     fn bind(addr: SocketAddr) -> Result<(), hyper::Error> {
-        let hello = || Ok(Master::default());
+        let master = Master::default();
+        // OH MY GOD THE PAIN TO KEEP THE RIGHT THING ALIVE
+        let closure_master = master.clone();
+        let hello = move || Ok(closure_master.clone());
 
         let server = Http::new().bind(&addr, hello)?;
         server.run()
