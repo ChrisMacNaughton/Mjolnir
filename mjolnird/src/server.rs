@@ -13,6 +13,7 @@ use hyper::{Body, Chunk, Client, Method, StatusCode};
 
 use tokio_core::reactor::Core;
 
+use protobuf::hex::encode_hex;
 use protobuf::Message as ProtobufMsg;
 use protobuf::core::parse_from_bytes;
 
@@ -70,7 +71,7 @@ impl Service for Master {
                     req.body().concat2().map(move |body| {
                         let mut response: Response<Box<Stream<Item=Chunk, Error=Self::Error>>> = Response::new();
                         // println!("Body: \n{}", body.wait().unwrap());
-                        println!("body: {}", to_hex_string(&body));
+                        println!("body: {}", encode_hex(&body));
                         match parse_from_bytes::<api::agent::Register>(&body) {
                             Ok(mut agent) => {
                                 agent.set_ip(format!("{}", agent_ip));
@@ -153,7 +154,7 @@ impl Agent {
         agent.set_port(addr.port().into());
         println!("Have an agent: {:?}", agent);
         let encoded = agent.write_to_bytes().unwrap();
-        println!("Encoded: {}", to_hex_string(&encoded));
+        println!("Encoded: {}", encode_hex(&encoded));
         let uri = format!("http://{}/register", master).parse()?;
         let mut req = Request::new( hyper::Method::Post, uri);
         {
@@ -173,11 +174,4 @@ impl Agent {
         // server.handle().spawen(work);
         server.run()
     }
-}
-
-fn to_hex_string(bytes: &[u8]) -> String {
-    let strs: Vec<String> = bytes.iter()
-        .map(|b| format!("{:02X}", b))
-        .collect();
-    strs.join(" ")
 }
