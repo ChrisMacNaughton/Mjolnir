@@ -11,7 +11,7 @@ homepage = "https://github.com/ChrisMacNaughton/Mjolnir"
 repository = "https://github.com/ChrisMacNaughton/Mjolnir.git"
 
 [dependencies]
-api = { path = "api"}
+mjolnir-api = { path = "mjolnir-api"}
 
 [workspace]
-members = [ "api", "mjolnird" ]
+members = [ "mjolnir-api", "mjolnird" ]

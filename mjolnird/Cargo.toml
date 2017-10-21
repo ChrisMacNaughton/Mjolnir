@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Chris MacNaughton <chris@centaurisolutions.nl>"]
 
 [dependencies]
-api = { path = "../api"}
+mjolnir-api = { path = "../mjolnir-api" }
 mjolnir = { path = ".."}
 clap = "2.26"
 futures = "0.1.16"

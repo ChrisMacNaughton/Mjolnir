@@ -5,7 +5,7 @@ extern crate tokio_core;
 extern crate protobuf;
 // workspace members
 extern crate mjolnir;
-extern crate api;
+extern crate mjolnir_api;
 
 mod config;
 mod server;

@@ -1,3 +1,7 @@
+extern crate mjolnir_api;
+
+mod plugins;
+
 #[cfg(test)]
 mod tests {
     #[test]

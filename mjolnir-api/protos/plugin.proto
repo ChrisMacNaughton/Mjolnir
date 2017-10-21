@@ -9,6 +9,8 @@ package Mjolnir;
 // Controller asks for remediation
 message RemediationRequest {
   required string plugin = 1;
+  optional string target = 2;
+  repeated string args = 3;
 }
 
 // Agent response with result
@@ -25,6 +27,7 @@ message RemediationResult {
 // TODO: Move these to their own crate
 message Alert {
   required string name = 1;
+  required string source = 2;
 }
 
 message Discover {

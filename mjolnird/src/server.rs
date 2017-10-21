@@ -16,7 +16,7 @@ use tokio_core::reactor::Core;
 use protobuf::Message as ProtobufMsg;
 use protobuf::core::parse_from_bytes;
 
-use api;
+use mjolnir_api as api;
 use config::{Config, Mode};
 
 #[derive(Clone, Default)]
