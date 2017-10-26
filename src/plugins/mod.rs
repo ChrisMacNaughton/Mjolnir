@@ -1,3 +1,5 @@
+use mjolnir_api::plugin;
+
 #[cfg(test)]
 mod tests {
     use super::*;

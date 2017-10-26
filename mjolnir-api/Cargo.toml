@@ -9,8 +9,8 @@ license = "AGPL-3.0"
 build = "build.rs"
 
 [build-dependencies]
-protoc-rust = "1.4" 
-protoc = "1.4" 
+protoc-rust = "1.4"
+protoc = "1.4"
 
 [dependencies]
-protobuf = "1.4" 
+protobuf = "1.4"

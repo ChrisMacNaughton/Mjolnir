@@ -27,7 +27,7 @@ message RemediationResult {
 // TODO: Move these to their own crate
 message Alert {
   required string name = 1;
-  required string source = 2;
+  optional string source = 2;
 }
 
 message Discover {
