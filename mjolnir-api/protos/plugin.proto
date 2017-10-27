@@ -26,8 +26,9 @@ message RemediationResult {
 
 // TODO: Move these to their own crate
 message Alert {
-  required string name = 1;
-  optional string source = 2;
+  required string title = 1;
+  optional string dynamic_name = 2;
+  optional string source = 3;
 }
 
 message Discover {
@@ -36,6 +37,7 @@ message Discover {
   optional string version = 3;
   // alerts that it generates
   repeated Alert alerts = 4;
+  required bool webhook = 5;
   // actions that it can take
-  repeated RemediationRequest actions = 5;
+  repeated RemediationRequest actions = 6;
 }

@@ -49,20 +49,32 @@ impl Service for Master {
     type Future = Box<Future<Item=Self::Response, Error=Self::Error>>;
 
     fn call(&self, req: Request) -> Self::Future {
-        // We're currently ignoring the Request
-        // And returning an 'ok' Future, which means it's ready
-        // immediately, and build a Response with the 'PHRASE' body.
-        
-        let phrase = "Hello, from Master";
-        
         match (req.method(), req.path()) {
-            (&Method::Get, "/") => {
-                let mut response = Response::new();
-                println!("Received request: {} {}", req.method(), req.path());
-                let body: Box<Stream<Item=_, Error=_>> = Box::new(Body::from(phrase));
-                response.set_body(body);
-                // response.set_body(phrase);
-                Box::new(futures::future::ok(response))
+            (&Method::Post, _) => {
+                let path = req.path().to_string();
+                let mut parts = path.split("/").clone();
+                let _ = parts.next();
+                match (parts.next(), parts.next()){
+                    (Some("webhook"), Some(name)) => {
+                        webhook(name, req)
+                    }
+                    (_first, _second) => {
+                        hello(req)
+                    }
+                }
+            },
+            (&Method::Get, _) => {
+                let path = req.path().to_string();
+                let mut parts = path.split("/").clone();
+                let _ = parts.next();
+                match (parts.next(), parts.next()){
+                    (Some("webhook"), Some(name)) => {
+                        webhook(name, req)
+                    }
+                    (_first, _second) => {
+                        hello(req)
+                    }
+                }
             },
             (&Method::Post, "/register") => {
                 let agents_arc = self.agents.clone();
@@ -102,6 +114,28 @@ impl Service for Master {
             },
         }
     }
+}
+
+fn hello(req: Request) -> Box<Future<Item=Response<Box<Stream<Item=Chunk, Error=hyper::Error>>>, Error=hyper::Error>> {
+    let phrase = "Hello, from Master";
+    let mut response = Response::new();
+    println!("Received request: {} {}", req.method(), req.path());
+    let body: Box<Stream<Item=_, Error=_>> = Box::new(Body::from(phrase));
+    response.set_body(body);
+    // response.set_body(phrase);
+    Box::new(futures::future::ok(response))
+}
+
+fn webhook(name: &str, req: Request) -> Box<Future<Item=Response<Box<Stream<Item=Chunk, Error=hyper::Error>>>, Error=hyper::Error>> {
+    println!("Responding to webook {} at {}", name, req.path());
+    Box::new(
+        req.body().concat2().map(move |_body| {
+            let mut response: Response<Box<Stream<Item=Chunk, Error=hyper::Error>>> = Response::new();
+            let body: Box<Stream<Item=_, Error=_>> = Box::new(Body::from("Ok"));
+            response.set_body(body);
+            response
+        })
+    )
 }
 
 impl Master {
@@ -161,7 +195,7 @@ impl Agent {
             let headers = req.headers_mut();
             headers.set(ContentLength(encoded.len() as u64));
         }
-            
+
         req.set_body(encoded);
         println!("Req is: {:?}", req);
         let work = client.request(req).map(|res| {

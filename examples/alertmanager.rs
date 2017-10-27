@@ -14,10 +14,11 @@ use mjolnir_api::plugin::{
 
 fn generate_usage() -> Discover{
     let mut discover = Discover::new();
-    discover.set_name("clean_disk".into());
+    discover.set_name("alertmanager".into());
     discover.set_author("Chris MacNaughton <chris@centaurisolutions.nl>".into());
     discover.set_version("0.0.1".into());
-    discover.set_webhook(false);
+    discover.set_webhook(true);
+
     generate_alerts(discover.mut_alerts());
     generate_actions(discover.mut_actions());
 
@@ -28,25 +29,28 @@ fn generate_usage() -> Discover{
 
 fn generate_alerts(alerts: &mut RepeatedField<Alert>) {
     // Your alerts here
+    let mut alert = Alert::new();
+    alert.set_title("alertmanager".into());
+    alerts.push(alert);
 }
 
 fn generate_actions(actions: &mut RepeatedField<RemediationRequest>) {
     // Your actions here
     let mut action = RemediationRequest::new();
-    action.set_plugin("clean".into());
+    action.set_plugin("alertmanager".into());
     let mut args = RepeatedField::new();
-    args.push("path".into());
+    args.push("body".into());
     action.set_args(args);
     actions.push(action);
 }
 
 // Your plugins should be functions wth this signature
 
-fn clean(args: HashMap<String, String>) -> RemediationResult {
+fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
     let mut result = RemediationResult::new();
     result.set_result(RemediationResultType::OK);
     // Your plugin action here
-    println!("Running the clean plugin with args: {:?}", args);
+    println!("Args for alertmanager are: {:?}", args);
     result
 }
 
@@ -54,7 +58,7 @@ fn main() {
     let plugins = {
         let mut plugins: HashMap<String, _> = HashMap::new();
         // Insert your plugins here!
-        plugins.insert("clean".into(), clean);
+        plugins.insert("alertmanager".into(), alertmanager);
         plugins
     };
 
