@@ -22,6 +22,26 @@ use mjolnir::PluginEntry;
  
 use config::Config;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_webhook() {
+        let plugin = PluginEntry {
+            name: "test-name".into(),
+            author: "test author".into(),
+            version: "test version".into(),
+            webhook: true,
+            alerts: vec![],
+            remediations: vec![],
+            path: PathBuf::from("/bin/echo"),
+        };
+
+        let body = process_webhook(plugin, "test".into());
+        assert_eq!(body, "plugin=test-name body=test\n")
+    }
+}
 #[derive(Clone, Debug, Default)]
 pub struct Master {
     agents: Arc<Mutex<Vec<SocketAddr>>>,
@@ -133,18 +153,7 @@ fn webhook(
         let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
             match String::from_utf8(body.to_vec()) {
                 Ok(s) => {
-                    
-                    println!("Hook is: {:?}", hook);
-                    let mut cmd = Command::new(hook.path);
-                    cmd.arg(format!("plugin={}", hook.name));
-                    cmd.arg(format!("body={}", s));
-                    if let Ok(output) = cmd
-                        .output(){
-                        // if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {
-                            Box::new(Body::from(output.stdout))
-                        } else {
-                            Box::new(Body::from("Ok"))
-                        }
+                    Box::new(Body::from(process_webhook(hook, s)))
                 },
                 Err(_) => Box::new(Body::from("Invalid Body"))
             }
@@ -161,6 +170,23 @@ fn webhook(
         response.set_body(body);
         response
     }))
+}
+
+fn process_webhook(hook: PluginEntry, body: String) -> String {
+    println!("Hook is: {:?}", hook);
+    let mut cmd = Command::new(hook.path);
+    cmd.arg(format!("plugin={}", hook.name));
+    cmd.arg(format!("body={}", body));
+    if let Ok(output) = cmd
+        .output(){
+        // if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {((
+            match String::from_utf8(output.stdout) {
+                Ok(s) => s,
+                Err(_) => "".into()
+            }
+        } else {
+            "Ok".into()
+        }
 }
 
 impl Master {
