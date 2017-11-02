@@ -9,7 +9,6 @@ use futures;
 use futures::{Future, Stream};
 
 use hyper;
-// use hyper::header::ContentLength;
 use hyper::server::{Http, Request, Response, Service};
 
 use hyper::{Body, Chunk, Method, StatusCode};
@@ -80,7 +79,7 @@ impl Service for Master {
                 let mut parts = path.split("/").clone();
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
-                    (Some("webhook"), Some(name)) => webhook(name, req),
+                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
                     (_first, _second) => hello(req),
                 }
             }
@@ -89,7 +88,7 @@ impl Service for Master {
                 let mut parts = path.split("/").clone();
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
-                    (Some("webhook"), Some(name)) => webhook(name, req),
+                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
                     (_first, _second) => hello(req),
                 }
             }
@@ -120,14 +119,45 @@ fn hello(
 fn webhook(
     name: &str,
     req: Request,
+    plugins: &Vec<PluginEntry>
 ) -> Box<
     Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
 > {
     println!("Responding to webook {} at {}", name, req.path());
-    Box::new(req.body().concat2().map(move |_body| {
+    // let plugins = plugins.clone();
+    let hook = plugins.iter().filter(|wh| wh.webhook ).filter(|wh| wh.name == name).nth(0).map(|p| p.clone());
+    // let hook: Option<PluginEntry> = *hook.clone();
+    
+    Box::new(req.body().concat2().map(move |body| {
+        // let plugins = plugins.clone();
+        let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
+            match String::from_utf8(body.to_vec()) {
+                Ok(s) => {
+                    
+                    println!("Hook is: {:?}", hook);
+                    let mut cmd = Command::new(hook.path);
+                    cmd.arg(format!("plugin={}", hook.name));
+                    cmd.arg(format!("body={}", s));
+                    if let Ok(output) = cmd
+                        .output(){
+                        // if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {
+                            Box::new(Body::from(output.stdout))
+                        } else {
+                            Box::new(Body::from("Ok"))
+                        }
+                },
+                Err(_) => Box::new(Body::from("Invalid Body"))
+            }
+            // println!("Body is: {:?}", body);
+            // cmd.arg(hook.name);
+            // hook.args.each
+            
+        } else {
+            Box::new(Body::from("Unknown Webhook"))
+        };
         let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
             Response::new();
-        let body: Box<Stream<Item = _, Error = _>> = Box::new(Body::from("Ok"));
+        
         response.set_body(body);
         response
     }))
@@ -160,7 +190,7 @@ impl Master {
                         println!("Trying to load plugin at: {:?}", file.path());
                         if let Ok(output) = Command::new(file.path())
                             .output(){
-                            if let Some(plugin) = PluginEntry::try_from(&output.stdout) {
+                            if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {
                                 if !plugins.contains(&plugin) {
                                     println!("Plugin is: {:?}", plugin);
                                     plugins.push(plugin);

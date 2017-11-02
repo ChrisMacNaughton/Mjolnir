@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use mjolnir_api::{self, plugin};
 
 #[cfg(test)]
@@ -18,6 +20,7 @@ pub struct PluginEntry {
     pub webhook: bool,
     pub alerts: Vec<Alert>,
     pub remediations: Vec<Remediation>,
+    pub path: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,13 +38,22 @@ pub struct Remediation {
 }
 
 impl PluginEntry {
-    pub fn try_from(input: &[u8]) -> Option<PluginEntry> {
+    pub fn try_from(input: &[u8], path: PathBuf) -> Option<PluginEntry> {
         match plugin::Discover::try_from(input) {
-            Ok(entry) => Some(entry.into()),
+            Ok(entry) => {
+                let mut p: PluginEntry = entry.into();
+                Some(p.with_path(path))
+            }
             Err(e) => {println!("Problem parsing: {:?}", e); None}
         }
     }
+
+    fn with_path(mut self, path: PathBuf) -> PluginEntry {
+        self.path = path;
+        self
+    }
 }
+
 impl From<plugin::Discover> for PluginEntry {
     fn from(plugin: plugin::Discover) -> PluginEntry {
         let repeated_alerts = plugin.get_alerts();
@@ -59,6 +71,7 @@ impl From<plugin::Discover> for PluginEntry {
             webhook: plugin.get_webhook(),
             alerts: alerts,
             remediations: actions,
+            path: PathBuf::from(""),
         }
     }
 }

@@ -27,21 +27,12 @@ fn generate_usage() -> Discover{
 
 // you can plug in actions and alerts below
 
-fn generate_alerts(alerts: &mut RepeatedField<Alert>) {
+fn generate_alerts(_alerts: &mut RepeatedField<Alert>) {
     // Your alerts here
-    let mut alert = Alert::new();
-    alert.set_title("alertmanager".into());
-    alerts.push(alert);
 }
 
-fn generate_actions(actions: &mut RepeatedField<RemediationRequest>) {
+fn generate_actions(_actions: &mut RepeatedField<RemediationRequest>) {
     // Your actions here
-    let mut action = RemediationRequest::new();
-    action.set_plugin("alertmanager".into());
-    let mut args = RepeatedField::new();
-    args.push("body".into());
-    action.set_args(args);
-    actions.push(action);
 }
 
 // Your plugins should be functions wth this signature
@@ -50,7 +41,7 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
     let mut result = RemediationResult::new();
     result.set_result(RemediationResultType::OK);
     // Your plugin action here
-    println!("Args for alertmanager are: {:?}", args);
+    println!("Args for alertmanager are: {:?}\nThis output comes from the `alertmanager` plugin", args);
     result
 }
 
@@ -81,12 +72,10 @@ fn main() {
 fn get_args() -> HashMap<String, String> {
     let mut args = env::args();
     if args.len() == 1 {
-        // println!("Pumping out the protobuf!");
-
+        // This is the usage directions to Mjolnir
         io::stdout().write(&generate_usage().write_to_bytes().unwrap()).unwrap();
         process::exit(0);
     } else {
-        println!("Hello, world!");
         let mut arg_list: HashMap<String, String> = HashMap::new();
         let _ = args.next();
         for arg in args {
