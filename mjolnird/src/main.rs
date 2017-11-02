@@ -19,5 +19,5 @@ fn main() {
     let config = Config::get_config();
     println!("About to start with {:?}", config);
 
-    server::bind(&config).expect("Couldn't bind to the specified port");
+    server::bind(config).expect("Couldn't bind to the specified port");
 }

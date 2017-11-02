@@ -26,6 +26,17 @@ mod tests {
     }
 
     #[test]
+    fn it_builds_a_master_config_with_plugin_path() {
+        let args = Config::matches()
+            .get_matches_from(vec!["mjolnird", "--bind=192.168.0.101:11011", "--plugins=/usr/local/share", "master"]);
+        let config = Config::from_args(args);
+        assert_eq!(config.mode, Mode::Master);
+        assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
+        assert_eq!(config.plugin_path.unwrap(), PathBuf::from("/usr/local/share"));
+        
+    }
+
+    #[test]
     fn it_builds_a_default_agent_config() {
         let args = Config::matches()
             .get_matches_from(vec!["mjolnird", "agent", "--master=192.168.0.100:11011"]);

@@ -5,10 +5,19 @@ use mjolnir_api::{self, plugin};
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use std::process::Command;
     #[test]
-    fn it_works() {
-        assert!(true);
+    fn it_creates_a_plugin_entry_from_protobuf() {
+        let buff = [
+            10, 12, 97, 108, 101, 114, 116, 109, 97, 110, 97, 103,101, 114, 18,
+            46, 67, 104, 114, 105, 115, 32, 77, 97, 99, 78, 97, 117, 103, 104,
+            116, 111, 110, 32, 60, 99, 104, 114, 105, 115, 64, 99, 101, 110,
+            116, 97, 117, 114, 105, 115, 111, 108, 117, 116, 105, 111, 110, 115,
+            46, 110, 108, 62, 26, 5, 48, 46, 48, 46, 49, 40, 1];
+        let plugin = PluginEntry::try_from(&buff, PathBuf::from("/tmp")).unwrap();
+        println!("Plugin: {:?}", plugin);
+        assert_eq!(plugin.name, "alertmanager");
+        assert!(plugin.webhook);
     }
 }
 
