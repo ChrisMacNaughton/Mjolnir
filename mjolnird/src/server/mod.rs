@@ -9,6 +9,6 @@ mod agent;
 pub fn bind(config: &Config) -> Result<(), Error> {
     match config.mode {
         Mode::Agent(ref masters) => agent::Agent::bind(config.bind_address.clone(), masters.clone()),
-        Mode::Master => master::Master::bind(config.bind_address.clone()),
+        Mode::Master => master::Master::bind(config.clone()),
     }
 }

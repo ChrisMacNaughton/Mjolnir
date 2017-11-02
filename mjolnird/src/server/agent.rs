@@ -1,29 +1,28 @@
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+// use std::sync::{Arc, Mutex};
 
 use futures;
 // use futures::future::Future;
-use futures::{Future, Stream};
+use futures::Future;
 
 use hyper;
 use hyper::header::ContentLength;
 use hyper::server::{Http, Request, Response, Service};
 
-use hyper::{Body, Chunk, Client, Method, StatusCode};
+use hyper::Client;
 
 use tokio_core::reactor::Core;
 
 use protobuf::hex::encode_hex;
 use protobuf::Message as ProtobufMsg;
-use protobuf::core::parse_from_bytes;
+// use protobuf::core::parse_from_bytes;
 
 use mjolnir_api as api;
 
+#[derive(Clone)]
 pub struct Agent {
     masters: Vec<SocketAddr>,
 }
-
-
 
 impl Service for Agent {
     // boilerplate hooking up hyper's server types
@@ -32,7 +31,7 @@ impl Service for Agent {
     type Error = hyper::Error;
     // The future representing the eventual Response your call will
     // resolve to. This can change to whatever Future you need.
-    type Future = Box<Future<Item=Self::Response, Error=Self::Error>>;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
     //alternately:
     // type Future = futures::future::FutureResult<Self::Response, Self::Error>;
 
@@ -45,15 +44,22 @@ impl Service for Agent {
         Box::new(futures::future::ok(
             Response::new()
                 .with_header(ContentLength(phrase.len() as u64))
-                .with_body(phrase)
+                .with_body(phrase),
         ))
     }
 }
 
 impl Agent {
     pub fn bind(addr: SocketAddr, masters: Vec<SocketAddr>) -> Result<(), hyper::Error> {
-        let master = masters[0].clone();
-        let server = Http::new().bind(&addr, move || Ok(Agent {masters: masters.clone()}))?;
+        let agent = Agent {
+                masters: masters,
+            };
+        let closure_agent = agent.clone();
+        let agent_server = move || Ok(closure_agent.clone());
+
+        let server = Http::new().bind(&addr, agent_server)?;
+
+        let master = agent.masters[0];
 
         let mut core = Core::new()?;
         let client = Client::new(&core.handle());
@@ -65,7 +71,7 @@ impl Agent {
         let encoded = agent.write_to_bytes().unwrap();
         println!("Encoded: {}", encode_hex(&encoded));
         let uri = format!("http://{}/register", master).parse()?;
-        let mut req = Request::new( hyper::Method::Post, uri);
+        let mut req = Request::new(hyper::Method::Post, uri);
         {
             let headers = req.headers_mut();
             headers.set(ContentLength(encoded.len() as u64));
