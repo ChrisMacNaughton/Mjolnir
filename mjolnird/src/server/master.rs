@@ -13,13 +13,12 @@ use hyper::server::{Http, Request, Response, Service};
 
 use hyper::{Body, Chunk, Method, StatusCode};
 
-use protobuf::hex::encode_hex;
+// use protobuf::hex::encode_hex;
 // use protobuf::Message as ProtobufMsg;
-use protobuf::core::parse_from_bytes;
+// use protobuf::core::parse_from_bytes;
 
-use mjolnir_api as api;
 use mjolnir::PluginEntry;
- 
+
 use config::Config;
 
 #[cfg(test)]
@@ -60,65 +59,7 @@ impl Service for Master {
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
     fn call(&self, req: Request) -> Self::Future {
-        match (req.method(), req.path()) {
-            (&Method::Post, "/register") => {
-                let agents_arc = self.agents.clone();
-                let agent_ip = req.remote_addr().unwrap().ip();
-                Box::new(req.body().concat2().map(move |body| {
-                    let mut response: Response<
-                        Box<Stream<Item = Chunk, Error = Self::Error>>,
-                    > = Response::new();
-                    // println!("Body: \n{}", body.wait().unwrap());
-                    println!("body: {}", encode_hex(&body));
-                    match parse_from_bytes::<api::agent::Register>(&body) {
-                        Ok(mut agent) => {
-                            agent.set_ip(format!("{}", agent_ip));
-                            let mut agents = agents_arc.lock().unwrap();
-                            let addr = SocketAddr::new(
-                                agent.get_ip().parse().unwrap(),
-                                agent.get_port() as u16,
-                            );
-                            if !agents.contains(&addr) {
-                                agents.push(addr);
-                            }
-                            response.set_status(StatusCode::ImATeapot);
-                            // TODO save/update this agent into the database
-                            println!("Registered: {:?}", agent);
-                            println!("We know about {} agents", agents.len());
-                        }
-                        Err(e) => {
-                            println!("Failed to parse_from_bytes {:?}", e);
-                            response.set_status(StatusCode::BadRequest);
-                        }
-                    };
-                    response
-                }))
-            }
-            (&Method::Post, _) => {
-                let path = req.path().to_string();
-                let mut parts = path.split("/").clone();
-                let _ = parts.next();
-                match (parts.next(), parts.next()) {
-                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
-                    (_first, _second) => hello(req),
-                }
-            }
-            (&Method::Get, _) => {
-                let path = req.path().to_string();
-                let mut parts = path.split("/").clone();
-                let _ = parts.next();
-                match (parts.next(), parts.next()) {
-                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
-                    (_first, _second) => hello(req),
-                }
-            }
-            _ => {
-                let mut response = Response::new();
-                println!("Received request: {} {}", req.method(), req.path());
-                response.set_status(StatusCode::NotFound);
-                Box::new(futures::future::ok(response))
-            }
-        }
+        self.route(req)
     }
 }
 
@@ -139,34 +80,36 @@ fn hello(
 fn webhook(
     name: &str,
     req: Request,
-    plugins: &Vec<PluginEntry>
+    plugins: &Vec<PluginEntry>,
 ) -> Box<
     Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
 > {
     println!("Responding to webook {} at {}", name, req.path());
     // let plugins = plugins.clone();
-    let hook = plugins.iter().filter(|wh| wh.webhook ).filter(|wh| wh.name == name).nth(0).map(|p| p.clone());
+    let hook = plugins
+        .iter()
+        .filter(|wh| wh.webhook)
+        .filter(|wh| wh.name == name)
+        .nth(0)
+        .map(|p| p.clone());
     // let hook: Option<PluginEntry> = *hook.clone();
-    
+
     Box::new(req.body().concat2().map(move |body| {
         // let plugins = plugins.clone();
         let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
             match String::from_utf8(body.to_vec()) {
-                Ok(s) => {
-                    Box::new(Body::from(process_webhook(hook, s)))
-                },
-                Err(_) => Box::new(Body::from("Invalid Body"))
+                Ok(s) => Box::new(Body::from(process_webhook(hook, s))),
+                Err(_) => Box::new(Body::from("Invalid Body")),
             }
-            // println!("Body is: {:?}", body);
-            // cmd.arg(hook.name);
-            // hook.args.each
-            
+        // println!("Body is: {:?}", body);
+        // cmd.arg(hook.name);
+        // hook.args.each
         } else {
             Box::new(Body::from("Unknown Webhook"))
         };
         let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
             Response::new();
-        
+
         response.set_body(body);
         response
     }))
@@ -177,28 +120,89 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
-    if let Ok(output) = cmd
-        .output(){
+    if let Ok(output) = cmd.output() {
         // if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {((
-            match String::from_utf8(output.stdout) {
-                Ok(s) => s,
-                Err(_) => "".into()
-            }
-        } else {
-            "Ok".into()
+        match String::from_utf8(output.stdout) {
+            Ok(s) => s,
+            Err(_) => "".into(),
         }
+    } else {
+        "Ok".into()
+    }
 }
 
 impl Master {
     pub fn bind(config: Config) -> Result<(), hyper::Error> {
-    
-        let master = Master::default().with_plugin_path(config.plugin_path).load_plugins();
+        let master = Master::default()
+            .with_plugin_path(config.plugin_path)
+            .load_plugins();
         // OH MY GOD THE PAIN TO KEEP THE RIGHT THING ALIVE
         let closure_master = master.clone();
         let master_server = move || Ok(closure_master.clone());
 
         let server = Http::new().bind(&config.bind_address, master_server)?;
         server.run()
+    }
+
+    fn route(
+        &self,
+        req: Request,
+    ) -> Box<
+        Future<
+            Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+            Error = hyper::Error,
+        >,
+    > {
+        match (req.method(), req.path()) {
+            // (&Method::Post, "/register") => {
+            //     let agents_arc = self.agents.clone();
+            //     let agent_ip = req.remote_addr().unwrap().ip();
+            //     Box::new(req.body().concat2().map(move |body| {
+            //         let mut response: Response<
+            //             Box<Stream<Item = Chunk, Error = hyper::Error>>,
+            //         > = Response::new();
+            //         // println!("Body: \n{}", body.wait().unwrap());
+            //         println!("body: {}", encode_hex(&body));
+            //         match parse_from_bytes::<api::agent::Register>(&body) {
+            //             Ok(mut agent) => {
+            //                 agent.set_ip(format!("{}", agent_ip));
+            //                 let mut agents = agents_arc.lock().unwrap();
+            //                 let addr = SocketAddr::new(
+            //                     agent.get_ip().parse().unwrap(),
+            //                     agent.get_port() as u16,
+            //                 );
+            //                 if !agents.contains(&addr) {
+            //                     agents.push(addr);
+            //                 }
+            //                 response.set_status(StatusCode::ImATeapot);
+            //                 // TODO save/update this agent into the database
+            //                 println!("Registered: {:?}", agent);
+            //                 println!("We know about {} agents", agents.len());
+            //             }
+            //             Err(e) => {
+            //                 println!("Failed to parse_from_bytes {:?}", e);
+            //                 response.set_status(StatusCode::BadRequest);
+            //             }
+            //         };
+            //         response
+            //     }))
+            // }
+            (&Method::Post, _) => {
+                let path = req.path().to_string();
+                let mut parts = path.split("/").clone();
+                let _ = parts.next();
+                match (parts.next(), parts.next()) {
+                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
+                    (_first, _second) => hello(req),
+                }
+            }
+            _ => {
+                let mut response = Response::new();
+                println!("Received request: {} {}", req.method(), req.path());
+                response.set_status(StatusCode::NotFound);
+                Box::new(futures::future::ok(response))
+            }
+        }
     }
 
     fn with_plugin_path(mut self, path: Option<PathBuf>) -> Self {
@@ -214,20 +218,22 @@ impl Master {
                 for file in dir {
                     if let Ok(file) = file {
                         println!("Trying to load plugin at: {:?}", file.path());
-                        if let Ok(output) = Command::new(file.path())
-                            .output(){
-                            if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {
+                        if let Ok(output) = Command::new(file.path()).output() {
+                            if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path())
+                            {
                                 if !plugins.contains(&plugin) {
                                     println!("Plugin is: {:?}", plugin);
                                     plugins.push(plugin);
                                 } else {
-                                    println!("Tried loading a duplicate pluigin named: {}", plugin.name);
+                                    println!(
+                                        "Tried loading a duplicate pluigin named: {}",
+                                        plugin.name
+                                    );
                                 }
                             } else {
                                 println!("Had a problem loading pluginn at {:?}", file.path());
                             }
                             // println!("Output is: {:?}", String::from_utf8_lossy(&output.stdout));
-                            
                         }
                     }
                 }
