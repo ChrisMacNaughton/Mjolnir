@@ -15,6 +15,7 @@ pub struct PluginEntry {
     pub name: String,
     pub author: String,
     pub version: String,
+    pub webhook: bool,
     pub alerts: Vec<Alert>,
     pub remediations: Vec<Remediation>,
 }
@@ -55,6 +56,7 @@ impl From<plugin::Discover> for PluginEntry {
             name: plugin.get_name().into(),
             author: plugin.get_author().into(),
             version: plugin.get_version().into(),
+            webhook: plugin.get_webhook(),
             alerts: alerts,
             remediations: actions,
         }
