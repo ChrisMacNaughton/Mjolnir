@@ -3,9 +3,10 @@ extern crate hyper;
 extern crate futures;
 extern crate tokio_core;
 extern crate protobuf;
+extern crate xdg;
 // workspace members
 extern crate mjolnir;
-extern crate api;
+extern crate mjolnir_api;
 
 mod config;
 mod server;
@@ -18,5 +19,5 @@ fn main() {
     let config = Config::get_config();
     println!("About to start with {:?}", config);
 
-    server::bind(&config).expect("Couldn't bind to the specified port");
+    server::bind(config).expect("Couldn't bind to the specified port");
 }
