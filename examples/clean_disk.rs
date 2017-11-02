@@ -26,7 +26,7 @@ fn generate_usage() -> Discover{
 
 // you can plug in actions and alerts below
 
-fn generate_alerts(alerts: &mut RepeatedField<Alert>) {
+fn generate_alerts(_alerts: &mut RepeatedField<Alert>) {
     // Your alerts here
 }
 

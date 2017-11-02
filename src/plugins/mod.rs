@@ -5,7 +5,6 @@ use mjolnir_api::{self, plugin};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
     #[test]
     fn it_creates_a_plugin_entry_from_protobuf() {
         let buff = [
@@ -50,7 +49,7 @@ impl PluginEntry {
     pub fn try_from(input: &[u8], path: PathBuf) -> Option<PluginEntry> {
         match plugin::Discover::try_from(input) {
             Ok(entry) => {
-                let mut p: PluginEntry = entry.into();
+                let p: PluginEntry = entry.into();
                 Some(p.with_path(path))
             }
             Err(e) => {println!("Problem parsing: {:?}", e); None}
