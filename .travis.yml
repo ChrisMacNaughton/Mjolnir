@@ -6,6 +6,9 @@ language: rust
 cache:
   cargo: true
   apt: true
+  directories:
+    - $HOME/lib
+    - $HOME/include
 
 rust:
   - stable
@@ -35,7 +38,7 @@ before_script:
   - export PATH=$HOME/.local/bin:$PATH &&
     export LIBRARY_PATH=$HOME/lib &&
     export LD_LIBRARY_PATH=$HOME/lib &&
-    export PKG_CONFIG_PATH=$HOME/lib/pkgconfig &&
+    export PKG_CONFIG_PATH=$HOME/lib/pkgconfig
   - cd /tmp
   - curl -sSOL https://github.com/zeromq/libzmq/releases/download/v4.2.0/zeromq-4.2.0.tar.gz
   - tar zxf zeromq-4.2.0.tar.gz
