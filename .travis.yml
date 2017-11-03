@@ -26,11 +26,23 @@ addons:
       - protobuf-compiler
       - libprotobuf-dev
       - libsodium-dev
-      - libzmq3-dev
+      # - libzmq3-dev # can't use trusty's version of zmq because it's too old
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
+before_script:
+  - export PATH=$HOME/.local/bin:$PATH &&
+    export LIBRARY_PATH=$HOME/lib &&
+    export LD_LIBRARY_PATH=$HOME/lib &&
+    export PKG_CONFIG_PATH=$HOME/lib/pkgconfig &&
+  - cd /tmp
+  - curl -sSOL https://github.com/zeromq/libzmq/releases/download/v4.2.0/zeromq-4.2.0.tar.gz
+  - tar zxf zeromq-4.2.0.tar.gz
+  - cd zeromq-4.2.0
+  - ./autogen.sh
+  - ./configure --prefix=$HOME --with-libsodium
+  - make -j 2 && make install
 script:
   - cargo build --all
   - cargo test --all
