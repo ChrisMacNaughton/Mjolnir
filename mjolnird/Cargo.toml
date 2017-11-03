@@ -8,7 +8,9 @@ mjolnir-api = { path = "../mjolnir-api" }
 mjolnir = { path = ".."}
 clap = "2.26"
 futures = "0.1.16"
+hostname = "^0.1"
 hyper = "0.11.6"
 tokio-core = "0.1"
 protobuf = "1.4" 
 xdg = "^2.1"
+zmq = "~0.8"

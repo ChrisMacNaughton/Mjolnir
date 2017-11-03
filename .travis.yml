@@ -22,6 +22,7 @@ addons:
       # Dependencies for Mjolnir
       - protobuf-compiler
       - libprotobuf-dev
+      - libzmq3-dev
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
@@ -32,7 +33,7 @@ script:
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/,api/src/agent.rs,api/src/plugin.rs --all
+    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/agent.rs,mjolnir-api/src/plugin.rs,mjolnir-api/src/mjolnir.rs --all
   fi
 
 

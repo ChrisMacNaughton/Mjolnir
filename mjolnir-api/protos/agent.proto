@@ -8,4 +8,5 @@ package Mjolnir;
 message Register {
   required string ip = 1;
   required int32 port = 2;
+  required string hostname = 3;
 }
