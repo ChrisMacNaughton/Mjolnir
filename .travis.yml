@@ -14,7 +14,10 @@ rust:
 
 addons:
   apt:
+    sources:
+    - sourceline: 'ppa:chris-lea/libsodium'
     packages:
+      # Cargo coverage dependencies
       - libcurl4-openssl-dev
       - libelf-dev
       - libdw-dev
@@ -22,6 +25,7 @@ addons:
       # Dependencies for Mjolnir
       - protobuf-compiler
       - libprotobuf-dev
+      - libsodium-dev
       - libzmq3-dev
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
