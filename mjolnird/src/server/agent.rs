@@ -51,12 +51,9 @@ impl Agent {
             pubkey: server_pubkey.into(),
             config: config,
         };
-        
-        
-
-        let _ = agent.listen();
 
         let _ = agent.register();
+        let _ = agent.listen();
         Ok(())
     }
 

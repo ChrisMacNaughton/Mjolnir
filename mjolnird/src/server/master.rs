@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Instant, Duration};
 use std::fs::{read_dir, File};
 use std::io::{Read, Write};
 use std::net::SocketAddr;
@@ -46,9 +46,26 @@ mod tests {
         assert_eq!(body, "plugin=test-name body=test\n")
     }
 }
+
+#[derive(Clone, Debug)]
+struct Agent {
+    ip: String,
+    hostname: String,
+    port: u16,
+    last_seen: Instant,
+}
+
+impl PartialEq for Agent {
+    fn eq(&self, other: &Agent) -> bool {
+        self.ip == other.ip &&
+            self.hostname == other.hostname &&
+            self.port == other.port
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Master {
-    agents: Arc<Mutex<Vec<SocketAddr>>>,
+    agents: Arc<Mutex<Vec<Agent>>>,
     plugins: Vec<PluginEntry>,
     plugin_path: Option<PathBuf>,
 }
@@ -82,60 +99,60 @@ fn hello(
     Box::new(futures::future::ok(response))
 }
 
-fn webhook(
-    name: &str,
-    req: Request,
-    plugins: &Vec<PluginEntry>,
-) -> Box<
-    Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
-> {
-    println!("Responding to webook {} at {}", name, req.path());
-    // let plugins = plugins.clone();
-    let hook = plugins
-        .iter()
-        .filter(|wh| wh.webhook)
-        .filter(|wh| wh.name == name)
-        .nth(0)
-        .map(|p| p.clone());
-    // let hook: Option<PluginEntry> = *hook.clone();
-
-    Box::new(req.body().concat2().map(move |body| {
-        // let plugins = plugins.clone();
-        let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
-            match String::from_utf8(body.to_vec()) {
-                Ok(s) => Box::new(Body::from(process_webhook(hook, s))),
-                Err(_) => Box::new(Body::from("Invalid Body")),
-            }
-        // println!("Body is: {:?}", body);
-        // cmd.arg(hook.name);
-        // hook.args.each
-        } else {
-            Box::new(Body::from("Unknown Webhook"))
-        };
-        let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
-            Response::new();
-
-        response.set_body(body);
-        response
-    }))
-}
-
 fn process_webhook(hook: PluginEntry, body: String) -> String {
-    println!("Hook is: {:?}", hook);
-    let mut cmd = Command::new(hook.path);
-    cmd.arg(format!("plugin={}", hook.name));
-    cmd.arg(format!("body={}", body));
-    if let Ok(output) = cmd.output() {
-        match String::from_utf8(output.stdout) {
-            Ok(s) => s,
-            Err(_) => "".into(),
+        println!("Hook is: {:?}", hook);
+        let mut cmd = Command::new(hook.path);
+        cmd.arg(format!("plugin={}", hook.name));
+        cmd.arg(format!("body={}", body));
+        if let Ok(output) = cmd.output() {
+            match String::from_utf8(output.stdout) {
+                Ok(s) => s,
+                Err(_) => "".into(),
+            }
+        } else {
+            "Ok".into()
         }
-    } else {
-        "Ok".into()
     }
-}
 
 impl Master {
+    fn webhook(
+        &self,
+        name: &str,
+        req: Request
+    ) -> Box<
+        Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
+    > {
+        println!("Responding to webook {} at {}", name, req.path());
+        // let plugins = plugins.clone();
+        let hook = self.plugins
+            .iter()
+            .filter(|wh| wh.webhook)
+            .filter(|wh| wh.name == name)
+            .nth(0)
+            .map(|p| p.clone());
+        // let hook: Option<PluginEntry> = *hook.clone();
+
+        Box::new(req.body().concat2().map(move |body| {
+            // let plugins = plugins.clone();
+            let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
+                match String::from_utf8(body.to_vec()) {
+                    Ok(s) => Box::new(Body::from(process_webhook(hook, s))),
+                    Err(_) => Box::new(Body::from("Invalid Body")),
+                }
+            // println!("Body is: {:?}", body);
+            // cmd.arg(hook.name);
+            // hook.args.each
+            } else {
+                Box::new(Body::from("Unknown Webhook"))
+            };
+            let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
+                Response::new();
+
+            response.set_body(body);
+            response
+        }))
+    }
+
     pub fn bind(config: Config) -> ZmqResult<()> {
         let master = Master::default()
             .with_plugin_path(config.plugin_path.clone())
@@ -157,7 +174,9 @@ impl Master {
     }
 
     fn setup_zmq(&self, config: &Config) -> ZmqResult<()>{
-        zmq_listen(config, Box::new(|operation, responder| {
+        let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
+        zmq_listen(config, Box::new(move|operation, responder| {
+            // let agents_arc = agents.clone();
             match operation.get_operation_type() {
                 OpType::PING => {
                     let mut o = Operation::new();
@@ -176,6 +195,27 @@ impl Master {
                     let encoded = o.write_to_bytes().unwrap();
                     let msg = Message::from_slice(&encoded)?;
                     responder.send_msg(msg, 0)?;
+                    let mut agents = agents.lock().unwrap();
+                    let agent_register = operation.get_register();
+                    let agent = Agent {
+                        ip: agent_register.get_ip().to_string(),
+                        hostname: agent_register.get_hostname().to_string(),
+                        port: agent_register.get_port() as u16,
+                        last_seen: Instant::now(),
+                    };
+                    let mut updated = false;
+                    {
+                        let known =  agents.iter_mut().filter(|a| **a == agent).nth(0);
+                        if let Some(mut known_agent) = known {
+                            known_agent.last_seen = agent.last_seen;
+                            updated = true;
+                        }
+                    }
+                    if !updated {
+                        agents.push(agent);
+                    }
+                    
+                    println!("#{} Agents", agents.len());
                 }
                 _ => {
                     println!("Not quite handling {:?} yet", operation);
@@ -184,103 +224,6 @@ impl Master {
             Ok(())
         }))
     }
-
-    // fn setup_curve(
-    //     &self,
-    //     s: &mut Socket,
-    //     config: &Config
-    // ) -> ZmqResult<()> {
-    //     // will raise EINVAL if not linked against libsodium
-    //     // The ubuntu package is linked so this shouldn't fail
-    //     s.set_curve_server(true)?;
-    //     let mut pubkey_path = config.config_path.clone();
-    //     pubkey_path.push("ecpubkey.pem");
-    //     let mut key_path = config.config_path.clone();
-    //     key_path.push("ecpubkey.key");
-    //     if let Ok(mut file) = File::open(&key_path) {
-    //         let mut key = String::new();
-    //         let _ = file.read_to_string(&mut key);
-    //         s.set_curve_secretkey(&key)?;
-    //     } else {
-    //         println!("Creating new curve keypair");
-    //         let keypair = zmq::CurveKeyPair::new()?;
-    //         s.set_curve_secretkey(&keypair.secret_key)?;
-
-    //         let mut f = File::create(pubkey_path).unwrap();
-    //         f.write(keypair.public_key.as_bytes()).unwrap();
-    //         let mut f = File::create(key_path).unwrap();
-    //         f.write(keypair.secret_key.as_bytes()).unwrap();
-    //     }
-
-    //     println!("Server mechanism: {:?}", s.get_mechanism());
-    //     println!("Curve server: {:?}", s.is_curve_server());
-
-    //     Ok(())
-    // }
-
-    // /*
-    // Server that manages disks
-    // */
-    // fn zmq_listen(
-    //     &self,
-    //     config: &Config,
-    // ) -> ZmqResult<()> {
-    //     println!("Starting zmq listener with version({:?})", zmq::version());
-    //     let context = zmq::Context::new();
-    //     let mut responder = context.socket(zmq::REP)?;
-
-    //     println!("Listening on {}", config.zmq_address);
-    //     // Fail to start if this fails
-    //     self.setup_curve(
-    //         &mut responder,
-    //         config,
-    //     )?;
-    //     assert!(
-    //         responder
-    //             .bind(&config.zmq_address)
-    //             .is_ok()
-    // );
-    //     println!("Going into the zmq loop");
-    //     let duration = Duration::from_millis(10);
-    //     loop {
-    //         match responder.recv_bytes(0) {
-    //             Ok(msg) => {
-    //                 println!("Got msg len: {}", msg.len());
-    //                 println!("Parsing msg {:?} as hex", msg);
-    //                 let operation = match parse_from_bytes::<Operation>(&msg) {
-    //                     Ok(bytes) => bytes,
-    //                     Err(e) => {
-    //                         println!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
-    //                         continue;
-    //                     }
-    //                 };
-    //                 println!("Operation is: {:?}", operation);
-    //                 match operation.get_operation_type() {
-    //                     OpType::REGISTER => {
-    //                         let mut o = Operation::new();
-    //                         println!("Creating ack");
-    //                         o.set_operation_type(OpType::ACK);
-
-    //                         let encoded = o.write_to_bytes().unwrap();
-    //                         let msg = Message::from_slice(&encoded)?;
-    //                         responder.send_msg(msg, 0)?;
-    //                     }
-    //                     _ => {
-    //                         println!("Not quite handling {:?} yet", operation);
-    //                     }
-    //                 }
-    //             },
-    //             Err(e) => {
-    //                 println!("Failed to recieve bytes: {:?}", e);
-    //                 return Err(e);
-    //             },
-    //         }
-    //         //.expect("Failed to recieve bytes?");
-
-
-    //         thread::sleep(duration);
-    //     }
-    // }
 
     fn route(
         &self,
@@ -297,7 +240,7 @@ impl Master {
                 let mut parts = path.split("/").clone();
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
-                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
+                    (Some("webhook"), Some(name)) => self.webhook(name, req),
                     (_first, _second) => hello(req),
                 }
             }
