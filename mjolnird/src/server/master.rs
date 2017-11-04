@@ -1,8 +1,11 @@
-use std::fs;
+use std::time::{Instant, Duration};
+use std::fs::{read_dir, File};
+use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 use futures;
 // use futures::future::Future;
@@ -13,12 +16,14 @@ use hyper::server::{Http, Request, Response, Service};
 
 use hyper::{Body, Chunk, Method, StatusCode};
 
-// use protobuf::hex::encode_hex;
-// use protobuf::Message as ProtobufMsg;
-// use protobuf::core::parse_from_bytes;
+use zmq::{self, Message, Socket, Result as ZmqResult};
+
+use protobuf::Message as ProtobufMsg;
 
 use mjolnir::PluginEntry;
 
+use mjolnir_api::{Operation, OperationType as OpType, parse_from_bytes};
+use server::zmq_listen;
 use config::Config;
 
 #[cfg(test)]
@@ -41,9 +46,26 @@ mod tests {
         assert_eq!(body, "plugin=test-name body=test\n")
     }
 }
+
+#[derive(Clone, Debug)]
+struct Agent {
+    ip: String,
+    hostname: String,
+    port: u16,
+    last_seen: Instant,
+}
+
+impl PartialEq for Agent {
+    fn eq(&self, other: &Agent) -> bool {
+        self.ip == other.ip &&
+            self.hostname == other.hostname &&
+            self.port == other.port
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Master {
-    agents: Arc<Mutex<Vec<SocketAddr>>>,
+    agents: Arc<Mutex<Vec<Agent>>>,
     plugins: Vec<PluginEntry>,
     plugin_path: Option<PathBuf>,
 }
@@ -77,71 +99,130 @@ fn hello(
     Box::new(futures::future::ok(response))
 }
 
-fn webhook(
-    name: &str,
-    req: Request,
-    plugins: &Vec<PluginEntry>,
-) -> Box<
-    Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
-> {
-    println!("Responding to webook {} at {}", name, req.path());
-    // let plugins = plugins.clone();
-    let hook = plugins
-        .iter()
-        .filter(|wh| wh.webhook)
-        .filter(|wh| wh.name == name)
-        .nth(0)
-        .map(|p| p.clone());
-    // let hook: Option<PluginEntry> = *hook.clone();
-
-    Box::new(req.body().concat2().map(move |body| {
-        // let plugins = plugins.clone();
-        let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
-            match String::from_utf8(body.to_vec()) {
-                Ok(s) => Box::new(Body::from(process_webhook(hook, s))),
-                Err(_) => Box::new(Body::from("Invalid Body")),
-            }
-        // println!("Body is: {:?}", body);
-        // cmd.arg(hook.name);
-        // hook.args.each
-        } else {
-            Box::new(Body::from("Unknown Webhook"))
-        };
-        let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
-            Response::new();
-
-        response.set_body(body);
-        response
-    }))
-}
-
 fn process_webhook(hook: PluginEntry, body: String) -> String {
-    println!("Hook is: {:?}", hook);
-    let mut cmd = Command::new(hook.path);
-    cmd.arg(format!("plugin={}", hook.name));
-    cmd.arg(format!("body={}", body));
-    if let Ok(output) = cmd.output() {
-        // if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path()) {((
-        match String::from_utf8(output.stdout) {
-            Ok(s) => s,
-            Err(_) => "".into(),
+        println!("Hook is: {:?}", hook);
+        let mut cmd = Command::new(hook.path);
+        cmd.arg(format!("plugin={}", hook.name));
+        cmd.arg(format!("body={}", body));
+        if let Ok(output) = cmd.output() {
+            match String::from_utf8(output.stdout) {
+                Ok(s) => s,
+                Err(_) => "".into(),
+            }
+        } else {
+            "Ok".into()
         }
-    } else {
-        "Ok".into()
     }
-}
 
 impl Master {
-    pub fn bind(config: Config) -> Result<(), hyper::Error> {
+    fn webhook(
+        &self,
+        name: &str,
+        req: Request
+    ) -> Box<
+        Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
+    > {
+        println!("Responding to webook {} at {}", name, req.path());
+        // let plugins = plugins.clone();
+        let hook = self.plugins
+            .iter()
+            .filter(|wh| wh.webhook)
+            .filter(|wh| wh.name == name)
+            .nth(0)
+            .map(|p| p.clone());
+        // let hook: Option<PluginEntry> = *hook.clone();
+
+        Box::new(req.body().concat2().map(move |body| {
+            // let plugins = plugins.clone();
+            let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
+                match String::from_utf8(body.to_vec()) {
+                    Ok(s) => Box::new(Body::from(process_webhook(hook, s))),
+                    Err(_) => Box::new(Body::from("Invalid Body")),
+                }
+            // println!("Body is: {:?}", body);
+            // cmd.arg(hook.name);
+            // hook.args.each
+            } else {
+                Box::new(Body::from("Unknown Webhook"))
+            };
+            let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
+                Response::new();
+
+            response.set_body(body);
+            response
+        }))
+    }
+
+    pub fn bind(config: Config) -> ZmqResult<()> {
         let master = Master::default()
-            .with_plugin_path(config.plugin_path)
+            .with_plugin_path(config.plugin_path.clone())
             .load_plugins();
+
+        let http_config = config.clone();
+
         // OH MY GOD THE PAIN TO KEEP THE RIGHT THING ALIVE
         let closure_master = master.clone();
-        let master_server = move || Ok(closure_master.clone());
+        thread::spawn(move||{
+            let master_server = move || Ok(closure_master.clone());
+            let server = Http::new().bind(&http_config.bind_address, master_server)?;
+            server.run()
+        });
+        // let _ = master.zmq_listen(&config)?;
+        let _ = master.setup_zmq(&config)?;
+        thread::park();
+        Ok(())
+    }
 
-        let server = Http::new().bind(&config.bind_address, master_server)?;
-        server.run()
+    fn setup_zmq(&self, config: &Config) -> ZmqResult<()>{
+        let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
+        zmq_listen(config, Box::new(move|operation, responder| {
+            // let agents_arc = agents.clone();
+            match operation.get_operation_type() {
+                OpType::PING => {
+                    let mut o = Operation::new();
+                    println!("Creating pong");
+                    o.set_operation_type(OpType::PONG);
+                    o.set_ping_id(operation.get_ping_id());
+                    let encoded = o.write_to_bytes().unwrap();
+                    let msg = Message::from_slice(&encoded)?;
+                    responder.send_msg(msg, 0)?;
+                }
+                OpType::REGISTER => {
+                    let mut o = Operation::new();
+                    println!("Creating ack");
+                    o.set_operation_type(OpType::ACK);
+
+                    let encoded = o.write_to_bytes().unwrap();
+                    let msg = Message::from_slice(&encoded)?;
+                    responder.send_msg(msg, 0)?;
+                    let mut agents = agents.lock().unwrap();
+                    let agent_register = operation.get_register();
+                    let agent = Agent {
+                        ip: agent_register.get_ip().to_string(),
+                        hostname: agent_register.get_hostname().to_string(),
+                        port: agent_register.get_port() as u16,
+                        last_seen: Instant::now(),
+                    };
+                    let mut updated = false;
+                    {
+                        let known =  agents.iter_mut().filter(|a| **a == agent).nth(0);
+                        if let Some(mut known_agent) = known {
+                            known_agent.last_seen = agent.last_seen;
+                            updated = true;
+                        }
+                    }
+                    if !updated {
+                        agents.push(agent);
+                    }
+                    
+                    println!("#{} Agents", agents.len());
+                }
+                _ => {
+                    println!("Not quite handling {:?} yet", operation);
+                }
+            }
+            Ok(())
+        }))
     }
 
     fn route(
@@ -154,45 +235,12 @@ impl Master {
         >,
     > {
         match (req.method(), req.path()) {
-            // (&Method::Post, "/register") => {
-            //     let agents_arc = self.agents.clone();
-            //     let agent_ip = req.remote_addr().unwrap().ip();
-            //     Box::new(req.body().concat2().map(move |body| {
-            //         let mut response: Response<
-            //             Box<Stream<Item = Chunk, Error = hyper::Error>>,
-            //         > = Response::new();
-            //         // println!("Body: \n{}", body.wait().unwrap());
-            //         println!("body: {}", encode_hex(&body));
-            //         match parse_from_bytes::<api::agent::Register>(&body) {
-            //             Ok(mut agent) => {
-            //                 agent.set_ip(format!("{}", agent_ip));
-            //                 let mut agents = agents_arc.lock().unwrap();
-            //                 let addr = SocketAddr::new(
-            //                     agent.get_ip().parse().unwrap(),
-            //                     agent.get_port() as u16,
-            //                 );
-            //                 if !agents.contains(&addr) {
-            //                     agents.push(addr);
-            //                 }
-            //                 response.set_status(StatusCode::ImATeapot);
-            //                 // TODO save/update this agent into the database
-            //                 println!("Registered: {:?}", agent);
-            //                 println!("We know about {} agents", agents.len());
-            //             }
-            //             Err(e) => {
-            //                 println!("Failed to parse_from_bytes {:?}", e);
-            //                 response.set_status(StatusCode::BadRequest);
-            //             }
-            //         };
-            //         response
-            //     }))
-            // }
             (&Method::Post, _) => {
                 let path = req.path().to_string();
                 let mut parts = path.split("/").clone();
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
-                    (Some("webhook"), Some(name)) => webhook(name, req, &self.plugins),
+                    (Some("webhook"), Some(name)) => self.webhook(name, req),
                     (_first, _second) => hello(req),
                 }
             }
@@ -205,8 +253,8 @@ impl Master {
         }
     }
 
-    fn with_plugin_path(mut self, path: Option<PathBuf>) -> Self {
-        self.plugin_path = path;
+    fn with_plugin_path(mut self, path: PathBuf) -> Self {
+        self.plugin_path = Some(path);
         self
     }
 
@@ -214,26 +262,18 @@ impl Master {
         let path = self.plugin_path.clone();
         if let Some(ref path) = path {
             let mut plugins = vec![];
-            if let Ok(dir) = fs::read_dir(path) {
+            if let Ok(dir) = read_dir(path) {
                 for file in dir {
                     if let Ok(file) = file {
-                        println!("Trying to load plugin at: {:?}", file.path());
                         if let Ok(output) = Command::new(file.path()).output() {
                             if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path())
                             {
                                 if !plugins.contains(&plugin) {
-                                    println!("Plugin is: {:?}", plugin);
                                     plugins.push(plugin);
-                                } else {
-                                    println!(
-                                        "Tried loading a duplicate pluigin named: {}",
-                                        plugin.name
-                                    );
                                 }
                             } else {
                                 println!("Had a problem loading pluginn at {:?}", file.path());
                             }
-                            // println!("Output is: {:?}", String::from_utf8_lossy(&output.stdout));
                         }
                     }
                 }

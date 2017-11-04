@@ -1,8 +1,5 @@
-
 syntax = "proto2";
 option optimize_for = SPEED;
-
-import "protos/agent.proto";
 
 package Mjolnir;
 

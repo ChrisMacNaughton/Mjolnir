@@ -1,0 +1,26 @@
+syntax = "proto2";
+option optimize_for = SPEED;
+
+package Mjolnir;
+
+import "protos/agent.proto";
+import "protos/plugin.proto";
+
+enum OperationType{
+    REGISTER = 0;
+    PING = 1;
+    PONG = 2;
+    ALERT = 3;
+    REMEDIATE = 4;
+    REMEDIATION_RESULT = 5;
+    ACK = 6;
+}
+
+message Operation {
+    required OperationType operation_type = 1;
+    optional uint64 ping_id = 2;
+    optional Alert alert = 3;
+    optional RemediationRequest remediate = 4;
+    optional RemediationResult result = 5;
+    optional Register register = 6;
+}

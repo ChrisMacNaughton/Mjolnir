@@ -6,6 +6,9 @@ language: rust
 cache:
   cargo: true
   apt: true
+  directories:
+    - $HOME/lib
+    - $HOME/include
 
 rust:
   - stable
@@ -14,7 +17,10 @@ rust:
 
 addons:
   apt:
+    sources:
+    - sourceline: 'ppa:chris-lea/libsodium'
     packages:
+      # Cargo coverage dependencies
       - libcurl4-openssl-dev
       - libelf-dev
       - libdw-dev
@@ -22,17 +28,32 @@ addons:
       # Dependencies for Mjolnir
       - protobuf-compiler
       - libprotobuf-dev
+      - libsodium-dev
+      # - libzmq3-dev # can't use trusty's version of zmq because it's too old
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
+before_script:
+  - export PATH=$HOME/.local/bin:$PATH &&
+    export LIBRARY_PATH=$HOME/lib &&
+    export LD_LIBRARY_PATH=$HOME/lib &&
+    export PKG_CONFIG_PATH=$HOME/lib/pkgconfig
+  - cd /tmp
+  - curl -sSOL https://github.com/zeromq/libzmq/releases/download/v4.2.0/zeromq-4.2.0.tar.gz
+  - tar zxf zeromq-4.2.0.tar.gz
+  - cd zeromq-4.2.0
+  - ./autogen.sh
+  - ./configure --prefix=$HOME --with-libsodium
+  - make -j 2 && make install
+  - cd $TRAVIS_BUILD_DIR
 script:
   - cargo build --all
   - cargo test --all
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/,api/src/agent.rs,api/src/plugin.rs --all
+    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/agent.rs,mjolnir-api/src/plugin.rs,mjolnir-api/src/mjolnir.rs --all
   fi
 
 

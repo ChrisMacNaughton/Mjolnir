@@ -1,9 +1,11 @@
 #[macro_use] extern crate clap;
+extern crate hostname;
 extern crate hyper;
 extern crate futures;
 extern crate tokio_core;
 extern crate protobuf;
 extern crate xdg;
+extern crate zmq;
 // workspace members
 extern crate mjolnir;
 extern crate mjolnir_api;
