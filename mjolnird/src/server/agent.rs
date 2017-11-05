@@ -1,8 +1,6 @@
 // use futures;
 // use futures::future::Future;
 // use futures::Future;
-use std::fs::File;
-use std::io::Read;
 
 use hostname::get_hostname;
 // use hyper;
@@ -20,7 +18,7 @@ use protobuf::Message as ProtobufMsg;
 use zmq::{Message, Result as ZmqResult};
 
 use config::{Config, Master};
-use server::{connect, zmq_listen};
+use server::{connect, server_pubkey, zmq_listen};
 
 #[derive(Clone)]
 pub struct Agent {
@@ -31,21 +29,9 @@ pub struct Agent {
 
 impl Agent {
     pub fn bind(config: Config, masters: Vec<Master>) -> ZmqResult<()> {
-        // lets get registered!
-        let server_pubkey = {
-            let mut pubkey_path = config.config_path.clone();
-            pubkey_path.push("ecpubkey.pem");
-            if let Ok(mut file) = File::open(&pubkey_path) {
-                let mut key = String::new();
-                let _ = file.read_to_string(&mut key);
-                key
-            } else {
-                panic!("You need to supply a server's public key, cannot continue");
-            }
-        };
         let agent = Agent {
             masters: masters,
-            pubkey: server_pubkey.into(),
+            pubkey: server_pubkey(&config).into(),
             config: config,
         };
 

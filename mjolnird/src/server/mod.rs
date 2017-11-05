@@ -23,6 +23,21 @@ pub fn bind(config: Config) -> ZmqResult<()> {
     }
 }
 
+fn server_pubkey(config: &Config) -> String {
+    let server_pubkey = {
+        let mut pubkey_path = config.config_path.clone();
+        pubkey_path.push("ecpubkey.pem");
+        if let Ok(mut file) = File::open(&pubkey_path) {
+            let mut key = String::new();
+            let _ = file.read_to_string(&mut key);
+            key
+        } else {
+            panic!("You need to supply a server's public key, cannot continue");
+        }
+    };
+    server_pubkey
+}
+
 fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
     println!("Starting zmq sender with version({:?})", zmq::version());
     let context = zmq::Context::new();

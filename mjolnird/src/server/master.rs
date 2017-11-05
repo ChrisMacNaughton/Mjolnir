@@ -22,7 +22,7 @@ use protobuf::Message as ProtobufMsg;
 use mjolnir::PluginEntry;
 
 use mjolnir_api::{Operation, OperationType as OpType, Register};
-use server::zmq_listen;
+use server::{zmq_listen, connect, server_pubkey};
 use config::Config;
 
 #[cfg(test)]
@@ -170,7 +170,37 @@ impl Master {
             let server = Http::new().bind(&http_config.bind_address, master_server)?;
             server.run()
         });
-        // let _ = master.zmq_listen(&config)?;
+        let background_agents = master.agents.clone();
+        let background_config = config.clone();
+        let ping_duration = Duration::from_millis(500);
+        thread::spawn(move|| {
+            let server_pubkey = server_pubkey(&background_config);
+            loop {
+                if let Ok(agents) = background_agents.try_lock() {
+                    for agent in agents.iter() {
+                        match connect(&agent.hostname, agent.port, &server_pubkey){
+                            Ok(socket) => {
+                                let mut o = Operation::new();
+                                println!("Creating PING");
+                                o.set_operation_type(OpType::PING);
+
+                                let encoded = o.write_to_bytes().unwrap();
+                                let msg = Message::from_slice(&encoded).unwrap();
+                                match socket.send_msg(msg, 0) {
+                                    Ok(_s) => {},
+                                    Err(e) => println!("Problem snding ping: {:?}", e)
+                                }
+                            }
+                            Err(e) => println!("problem connecting to socket: {:?}", e),
+                        }
+                    }
+                } else {
+                    println!("Failed to lock agents mutex for PING");
+                }
+            
+                thread::sleep(ping_duration);
+            }
+        });
         let _ = master.setup_zmq(&config)?;
         thread::park();
         Ok(())
@@ -211,7 +241,7 @@ impl Master {
                         let mut updated = false;
                         {
                             let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
-                            if let Some(mut known_agent) = known {
+                            if let Some(known_agent) = known {
                                 known_agent.last_seen = agent.last_seen;
                                 updated = true;
                             }
