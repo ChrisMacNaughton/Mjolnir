@@ -19,9 +19,7 @@ use zmq::{Message, Result as ZmqResult};
 
 use protobuf::Message as ProtobufMsg;
 
-use mjolnir::PluginEntry;
-
-use mjolnir_api::{Operation, OperationType as OpType, Register};
+use mjolnir_api::{Operation, OperationType as OpType, PluginEntry, Register};
 use server::{zmq_listen, connect, server_pubkey};
 use config::Config;
 

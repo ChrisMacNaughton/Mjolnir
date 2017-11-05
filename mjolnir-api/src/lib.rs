@@ -16,8 +16,14 @@ pub use proto::mjolnir::{Operation, OperationType};
 pub use proto::plugin;
 
 mod register;
+mod alert;
+mod plugin_entry;
+mod remediation;
 
 pub use register::Register;
+pub use alert::Alert;
+pub use plugin_entry::PluginEntry;
+pub use remediation::Remediation;
 
 // pub use proto::agent::Register;
 
