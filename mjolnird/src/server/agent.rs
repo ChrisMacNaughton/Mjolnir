@@ -1,6 +1,9 @@
 // use futures;
 // use futures::future::Future;
 // use futures::Future;
+use std::sync::Arc;
+use std::time::Duration;
+use std::thread;
 
 use hostname::get_hostname;
 // use hyper;
@@ -22,20 +25,48 @@ use server::{connect, server_pubkey, zmq_listen};
 
 #[derive(Clone)]
 pub struct Agent {
-    masters: Vec<Master>,
+    masters: Arc<Vec<Master>>,
     pubkey: String,
     config: Config,
 }
 
 impl Agent {
     pub fn bind(config: Config, masters: Vec<Master>) -> ZmqResult<()> {
+
+        let background_config = config.clone();
         let agent = Agent {
-            masters: masters,
+            masters: Arc::new(masters),
             pubkey: server_pubkey(&config).into(),
             config: config,
         };
 
         let _ = agent.register();
+        let ping_duration = Duration::from_millis(500);
+        let masters = agent.masters.clone();
+        thread::spawn(move|| {
+            let server_pubkey = server_pubkey(&background_config);
+            loop {
+                for master in masters.iter() {
+                    match connect(&master.ip, master.zmq_port, &server_pubkey){
+                        Ok(socket) => {
+                            let mut o = Operation::new();
+                            println!("Creating PING");
+                            o.set_operation_type(OpType::PING);
+
+                            let encoded = o.write_to_bytes().unwrap();
+                            let msg = Message::from_slice(&encoded).unwrap();
+                            match socket.send_msg(msg, 0) {
+                                Ok(_s) => {},
+                                Err(e) => println!("Problem snding ping: {:?}", e)
+                            }
+                        }
+                        Err(e) => println!("problem connecting to socket: {:?}", e),
+                    }
+                }
+            
+                thread::sleep(ping_duration);
+            }
+        });
         let _ = agent.listen();
         Ok(())
     }
