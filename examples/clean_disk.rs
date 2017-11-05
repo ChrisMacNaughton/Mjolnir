@@ -6,13 +6,11 @@ use std::process;
 use std::io::{self, Write};
 
 use mjolnir_api::{Message, RepeatedField, RemediationResultType};
-use mjolnir_api::plugin::{
-    Alert, Discover, RemediationRequest, RemediationResult,
-};
+use mjolnir_api::plugin::{Alert, Discover, RemediationRequest, RemediationResult};
 
 // What does your plugin look like?
 
-fn generate_usage() -> Discover{
+fn generate_usage() -> Discover {
     let mut discover = Discover::new();
     discover.set_name("clean_disk".into());
     discover.set_author("Chris MacNaughton <chris@centaurisolutions.nl>".into());
@@ -67,7 +65,11 @@ fn main() {
     });
 
     let f = plugins.get(&plugin).unwrap_or_else(|| {
-        println!("{} is not a registered plugin, available plugins are: {:?}", plugin, plugins.keys());
+        println!(
+            "{} is not a registered plugin, available plugins are: {:?}",
+            plugin,
+            plugins.keys()
+        );
         process::exit(1);
     });
 
@@ -79,7 +81,9 @@ fn get_args() -> HashMap<String, String> {
     if args.len() == 1 {
         // println!("Pumping out the protobuf!");
 
-        io::stdout().write(&generate_usage().write_to_bytes().unwrap()).unwrap();
+        io::stdout()
+            .write(&generate_usage().write_to_bytes().unwrap())
+            .unwrap();
         process::exit(0);
     } else {
         println!("Hello, world!");
@@ -97,4 +101,3 @@ fn get_args() -> HashMap<String, String> {
         return arg_list;
     }
 }
-
