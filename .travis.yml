@@ -53,7 +53,7 @@ script:
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto* --all
+    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
   fi
 
 
