@@ -5,7 +5,7 @@ authors = [
     "Chris MacNaughton <chris@centaurisolutions.nl>",
     "Chris Holcombe <xfactor973@gmail.com>",
 ]
-license = "AGPL-3.0"
+license = "MIT/Apache-2.0"
 description = "Mjölnir is a tool to manage large numbers of servers."
 homepage = "https://github.com/ChrisMacNaughton/Mjolnir"
 repository = "https://github.com/ChrisMacNaughton/Mjolnir.git"
