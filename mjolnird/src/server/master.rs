@@ -1,7 +1,6 @@
 use std::time::{Instant, Duration};
-use std::fs::{read_dir, File};
-use std::io::{Read, Write};
-use std::net::SocketAddr;
+use std::fs::read_dir;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -16,13 +15,13 @@ use hyper::server::{Http, Request, Response, Service};
 
 use hyper::{Body, Chunk, Method, StatusCode};
 
-use zmq::{self, Message, Socket, Result as ZmqResult};
+use zmq::{Message, Result as ZmqResult};
 
 use protobuf::Message as ProtobufMsg;
 
 use mjolnir::PluginEntry;
 
-use mjolnir_api::{Operation, OperationType as OpType, parse_from_bytes};
+use mjolnir_api::{Operation, OperationType as OpType, Register};
 use server::zmq_listen;
 use config::Config;
 
@@ -49,7 +48,7 @@ mod tests {
 
 #[derive(Clone, Debug)]
 struct Agent {
-    ip: String,
+    ip: IpAddr,
     hostname: String,
     port: u16,
     last_seen: Instant,
@@ -57,9 +56,7 @@ struct Agent {
 
 impl PartialEq for Agent {
     fn eq(&self, other: &Agent) -> bool {
-        self.ip == other.ip &&
-            self.hostname == other.hostname &&
-            self.port == other.port
+        self.ip == other.ip && self.hostname == other.hostname && self.port == other.port
     }
 }
 
@@ -88,7 +85,10 @@ impl Service for Master {
 fn hello(
     req: Request,
 ) -> Box<
-    Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
+    Future<
+        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+        Error = hyper::Error,
+    >,
 > {
     let phrase = "Hello, from Master";
     let mut response = Response::new();
@@ -100,27 +100,30 @@ fn hello(
 }
 
 fn process_webhook(hook: PluginEntry, body: String) -> String {
-        println!("Hook is: {:?}", hook);
-        let mut cmd = Command::new(hook.path);
-        cmd.arg(format!("plugin={}", hook.name));
-        cmd.arg(format!("body={}", body));
-        if let Ok(output) = cmd.output() {
-            match String::from_utf8(output.stdout) {
-                Ok(s) => s,
-                Err(_) => "".into(),
-            }
-        } else {
-            "Ok".into()
+    println!("Hook is: {:?}", hook);
+    let mut cmd = Command::new(hook.path);
+    cmd.arg(format!("plugin={}", hook.name));
+    cmd.arg(format!("body={}", body));
+    if let Ok(output) = cmd.output() {
+        match String::from_utf8(output.stdout) {
+            Ok(s) => s,
+            Err(_) => "".into(),
         }
+    } else {
+        "Ok".into()
     }
+}
 
 impl Master {
     fn webhook(
         &self,
         name: &str,
-        req: Request
+        req: Request,
     ) -> Box<
-        Future<Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>, Error = hyper::Error>,
+        Future<
+            Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+            Error = hyper::Error,
+        >,
     > {
         println!("Responding to webook {} at {}", name, req.path());
         // let plugins = plugins.clone();
@@ -162,7 +165,7 @@ impl Master {
 
         // OH MY GOD THE PAIN TO KEEP THE RIGHT THING ALIVE
         let closure_master = master.clone();
-        thread::spawn(move||{
+        thread::spawn(move || {
             let master_server = move || Ok(closure_master.clone());
             let server = Http::new().bind(&http_config.bind_address, master_server)?;
             server.run()
@@ -173,56 +176,59 @@ impl Master {
         Ok(())
     }
 
-    fn setup_zmq(&self, config: &Config) -> ZmqResult<()>{
+    fn setup_zmq(&self, config: &Config) -> ZmqResult<()> {
         let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
-        zmq_listen(config, Box::new(move|operation, responder| {
-            // let agents_arc = agents.clone();
-            match operation.get_operation_type() {
-                OpType::PING => {
-                    let mut o = Operation::new();
-                    println!("Creating pong");
-                    o.set_operation_type(OpType::PONG);
-                    o.set_ping_id(operation.get_ping_id());
-                    let encoded = o.write_to_bytes().unwrap();
-                    let msg = Message::from_slice(&encoded)?;
-                    responder.send_msg(msg, 0)?;
-                }
-                OpType::REGISTER => {
-                    let mut o = Operation::new();
-                    println!("Creating ack");
-                    o.set_operation_type(OpType::ACK);
+        zmq_listen(
+            config,
+            Box::new(move |operation, responder| {
+                // let agents_arc = agents.clone();
+                match operation.get_operation_type() {
+                    OpType::PING => {
+                        let mut o = Operation::new();
+                        println!("Creating pong");
+                        o.set_operation_type(OpType::PONG);
+                        o.set_ping_id(operation.get_ping_id());
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
+                    }
+                    OpType::REGISTER => {
+                        let mut o = Operation::new();
+                        println!("Creating ack");
+                        o.set_operation_type(OpType::ACK);
 
-                    let encoded = o.write_to_bytes().unwrap();
-                    let msg = Message::from_slice(&encoded)?;
-                    responder.send_msg(msg, 0)?;
-                    let mut agents = agents.lock().unwrap();
-                    let agent_register = operation.get_register();
-                    let agent = Agent {
-                        ip: agent_register.get_ip().to_string(),
-                        hostname: agent_register.get_hostname().to_string(),
-                        port: agent_register.get_port() as u16,
-                        last_seen: Instant::now(),
-                    };
-                    let mut updated = false;
-                    {
-                        let known =  agents.iter_mut().filter(|a| **a == agent).nth(0);
-                        if let Some(mut known_agent) = known {
-                            known_agent.last_seen = agent.last_seen;
-                            updated = true;
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
+                        let mut agents = agents.lock().unwrap();
+                        let register: Register = operation.get_register().clone().into();
+                        let agent = Agent {
+                            ip: register.ip,
+                            hostname: register.hostname,
+                            port: register.port,
+                            last_seen: Instant::now(),
+                        };
+                        let mut updated = false;
+                        {
+                            let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
+                            if let Some(mut known_agent) = known {
+                                known_agent.last_seen = agent.last_seen;
+                                updated = true;
+                            }
                         }
+                        if !updated {
+                            agents.push(agent);
+                        }
+
+                        println!("#{} Agents", agents.len());
                     }
-                    if !updated {
-                        agents.push(agent);
+                    _ => {
+                        println!("Not quite handling {:?} yet", operation);
                     }
-                    
-                    println!("#{} Agents", agents.len());
                 }
-                _ => {
-                    println!("Not quite handling {:?} yet", operation);
-                }
-            }
-            Ok(())
-        }))
+                Ok(())
+            }),
+        )
     }
 
     fn route(
@@ -266,7 +272,10 @@ impl Master {
                 for file in dir {
                     if let Ok(file) = file {
                         if let Ok(output) = Command::new(file.path()).output() {
-                            if let Some(plugin) = PluginEntry::try_from(&output.stdout, file.path())
+                            if let Some(plugin) = PluginEntry::try_from(
+                                &output.stdout,
+                                file.path(),
+                            )
                             {
                                 if !plugins.contains(&plugin) {
                                     plugins.push(plugin);

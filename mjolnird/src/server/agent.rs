@@ -1,14 +1,11 @@
-use std::net::SocketAddr;
-// use std::sync::{Arc, Mutex};
-
 // use futures;
 // use futures::future::Future;
 // use futures::Future;
-use std::fs::{File};
-use std::io::{Read, Write};
+use std::fs::File;
+use std::io::Read;
 
 use hostname::get_hostname;
-use hyper;
+// use hyper;
 // use hyper::header::ContentLength;
 // use hyper::server::{Http, Request, Response, Service};
 
@@ -20,7 +17,7 @@ use mjolnir_api::{Operation, OperationType as OpType, Register, parse_from_bytes
 
 use protobuf::Message as ProtobufMsg;
 
-use zmq::{self, Message, Socket, Result as ZmqResult};
+use zmq::{Message, Result as ZmqResult};
 
 use config::{Config, Master};
 use server::{connect, zmq_listen};
@@ -58,23 +55,26 @@ impl Agent {
     }
 
     fn listen(&self) -> ZmqResult<()> {
-        zmq_listen(&self.config, Box::new(|operation, responder| {
-            match operation.get_operation_type() {
-                OpType::PING => {
-                    let mut o = Operation::new();
-                    println!("Creating pong");
-                    o.set_operation_type(OpType::PONG);
-                    o.set_ping_id(operation.get_ping_id());
-                    let encoded = o.write_to_bytes().unwrap();
-                    let msg = Message::from_slice(&encoded)?;
-                    responder.send_msg(msg, 0)?;
+        zmq_listen(
+            &self.config,
+            Box::new(|operation, responder| {
+                match operation.get_operation_type() {
+                    OpType::PING => {
+                        let mut o = Operation::new();
+                        println!("Creating pong");
+                        o.set_operation_type(OpType::PONG);
+                        o.set_ping_id(operation.get_ping_id());
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
+                    }
+                    _ => {
+                        println!("Not quite handling {:?} yet", operation);
+                    }
                 }
-                _ => {
-                    println!("Not quite handling {:?} yet", operation);
-                }
-            }
-            Ok(())
-        }))
+                Ok(())
+            }),
+        )
     }
 
     fn register(&self) -> ZmqResult<()> {
@@ -91,11 +91,12 @@ impl Agent {
         let mut o = Operation::new();
         println!("Creating  operation request");
         o.set_operation_type(OpType::REGISTER);
-        let mut register = Register::new();
-        register.set_hostname(get_hostname().unwrap());
-        register.set_ip(self.config.my_ip.clone());
-        register.set_port(self.config.zmq_port as i32);
-        o.set_register(register);
+        let register = Register::new(
+            self.config.my_ip.clone(),
+            self.config.zmq_port,
+            get_hostname().unwrap(),
+        );
+        o.set_register(register.into());
         let encoded = o.write_to_bytes().unwrap();
         let msg = Message::from_slice(&encoded)?;
         println!("Sending message");
@@ -121,11 +122,11 @@ impl Agent {
                         println!("Not quite handling {:?} yet", operation);
                     }
                 }
-            },
+            }
             Err(e) => {
                 println!("Failed to recieve bytes: {:?}", e);
                 return Err(e);
-            },
+            }
         }
         Ok(())
     }

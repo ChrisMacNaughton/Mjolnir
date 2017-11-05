@@ -8,11 +8,78 @@ mod tests {
     #[test]
     fn it_creates_a_plugin_entry_from_protobuf() {
         let buff = [
-            10, 12, 97, 108, 101, 114, 116, 109, 97, 110, 97, 103,101, 114, 18,
-            46, 67, 104, 114, 105, 115, 32, 77, 97, 99, 78, 97, 117, 103, 104,
-            116, 111, 110, 32, 60, 99, 104, 114, 105, 115, 64, 99, 101, 110,
-            116, 97, 117, 114, 105, 115, 111, 108, 117, 116, 105, 111, 110, 115,
-            46, 110, 108, 62, 26, 5, 48, 46, 48, 46, 49, 40, 1];
+            10,
+            12,
+            97,
+            108,
+            101,
+            114,
+            116,
+            109,
+            97,
+            110,
+            97,
+            103,
+            101,
+            114,
+            18,
+            46,
+            67,
+            104,
+            114,
+            105,
+            115,
+            32,
+            77,
+            97,
+            99,
+            78,
+            97,
+            117,
+            103,
+            104,
+            116,
+            111,
+            110,
+            32,
+            60,
+            99,
+            104,
+            114,
+            105,
+            115,
+            64,
+            99,
+            101,
+            110,
+            116,
+            97,
+            117,
+            114,
+            105,
+            115,
+            111,
+            108,
+            117,
+            116,
+            105,
+            111,
+            110,
+            115,
+            46,
+            110,
+            108,
+            62,
+            26,
+            5,
+            48,
+            46,
+            48,
+            46,
+            49,
+            40,
+            1,
+        ];
         let plugin = PluginEntry::try_from(&buff, PathBuf::from("/tmp")).unwrap();
         println!("Plugin: {:?}", plugin);
         assert_eq!(plugin.name, "alertmanager");
@@ -52,7 +119,10 @@ impl PluginEntry {
                 let p: PluginEntry = entry.into();
                 Some(p.with_path(path))
             }
-            Err(e) => {println!("Problem parsing: {:?}", e); None}
+            Err(e) => {
+                println!("Problem parsing: {:?}", e);
+                None
+            }
         }
     }
 
@@ -65,12 +135,13 @@ impl PluginEntry {
 impl From<plugin::Discover> for PluginEntry {
     fn from(plugin: plugin::Discover) -> PluginEntry {
         let repeated_alerts = plugin.get_alerts();
-        // let mut alerts = Vec::with_capacity(repeated_alerts.len());
-        let alerts = repeated_alerts.iter().map(|alert| alert.into() ).collect();
+        let alerts = repeated_alerts.iter().map(|alert| alert.into()).collect();
 
         let repeated_actions = plugin.get_actions();
-        // let mut actions = Vec::with_capacity(repeated_alerts.len());
-        let actions = repeated_actions.iter().map(|action| action.into() ).collect();
+        let actions = repeated_actions
+            .iter()
+            .map(|action| action.into())
+            .collect();
 
         PluginEntry {
             name: plugin.get_name().into(),
@@ -90,7 +161,7 @@ impl From<PluginEntry> for plugin::Discover {
         d.set_name(plugin.name);
         d.set_author(plugin.author);
         d.set_version(plugin.version);
-        
+
         let mut repeated_alerts = mjolnir_api::RepeatedField::default();
         for alert in plugin.alerts {
             repeated_alerts.push(alert.into());
@@ -105,15 +176,15 @@ impl<'a> From<&'a plugin::Alert> for Alert {
         Alert {
             title: alert.get_title().into(),
             name: if alert.has_dynamic_name() {
-                    Some(alert.get_dynamic_name().to_string())
-                } else {
-                    None
-                },
+                Some(alert.get_dynamic_name().to_string())
+            } else {
+                None
+            },
             source: if alert.has_source() {
-                    Some(alert.get_source().to_string())
-                } else {
-                    None
-                },
+                Some(alert.get_source().to_string())
+            } else {
+                None
+            },
         }
     }
 }
@@ -128,7 +199,7 @@ impl From<Alert> for plugin::Alert {
         if let Some(source) = alert.source {
             a.set_source(source);
         }
-        
+
         // d.set_alerts()
         a
     }
@@ -139,11 +210,11 @@ impl<'a> From<&'a plugin::RemediationRequest> for Remediation {
         Remediation {
             plugin: remediation.get_plugin().into(),
             target: if remediation.has_target() {
-                    Some(remediation.get_target().to_string())
-                } else {
-                    None
-                },
-            args: remediation.get_args().into()
+                Some(remediation.get_target().to_string())
+            } else {
+                None
+            },
+            args: remediation.get_args().into(),
         }
     }
 }

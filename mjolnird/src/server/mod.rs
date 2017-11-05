@@ -1,11 +1,10 @@
 // use hyper::Error;
 use std::thread;
 use std::time::Duration;
-use std::fs::{read_dir, File};
+use std::fs::File;
 use std::io::{Read, Write};
 
-use protobuf::Message as ProtobufMsg;
-use zmq::{self, Message, Socket, Result as ZmqResult};
+use zmq::{self, Socket, Result as ZmqResult};
 
 use config::{Config, Mode};
 
@@ -13,11 +12,11 @@ mod master;
 mod agent;
 
 
-use mjolnir_api::{Operation, OperationType as OpType, parse_from_bytes};
+use mjolnir_api::{Operation, parse_from_bytes};
 
 // const PHRASE: &'static str = "Hello, World!";
 
-pub fn bind(config: Config) -> ZmqResult<()>{
+pub fn bind(config: Config) -> ZmqResult<()> {
     match config.mode.clone() {
         Mode::Agent(masters) => agent::Agent::bind(config, masters),
         Mode::Master => master::Master::bind(config),
@@ -44,10 +43,7 @@ fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
     Ok(requester)
 }
 
-fn setup_curve(
-    s: &mut Socket,
-    config: &Config
-) -> ZmqResult<()> {
+fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
     // will raise EINVAL if not linked against libsodium
     // The ubuntu package is linked so this shouldn't fail
     s.set_curve_server(true)?;
@@ -81,7 +77,7 @@ Server that manages disks
 */
 fn zmq_listen(
     config: &Config,
-    callback: Box<Fn(Operation, &Socket) -> ZmqResult<()>>
+    callback: Box<Fn(Operation, &Socket) -> ZmqResult<()>>,
 ) -> ZmqResult<()> {
     println!("Starting zmq listener with version({:?})", zmq::version());
     let context = zmq::Context::new();
@@ -89,15 +85,8 @@ fn zmq_listen(
 
     println!("Listening on {}", config.zmq_address);
     // Fail to start if this fails
-    setup_curve(
-        &mut responder,
-        config,
-    )?;
-    assert!(
-        responder
-            .bind(&config.zmq_address)
-            .is_ok()
-);
+    setup_curve(&mut responder, config)?;
+    assert!(responder.bind(&config.zmq_address).is_ok());
     println!("Going into the zmq loop");
     let duration = Duration::from_millis(10);
     loop {
@@ -114,11 +103,11 @@ fn zmq_listen(
                 };
                 println!("Operation is: {:?}", operation);
                 callback(operation, &responder)?
-            },
+            }
             Err(e) => {
                 println!("Failed to recieve bytes: {:?}", e);
                 return Err(e);
-            },
+            }
         }
         //.expect("Failed to recieve bytes?");
 

@@ -1,6 +1,20 @@
 syntax = "proto2";
 option optimize_for = SPEED;
 
+// This would let us use bytes for the encoding but:
+// error: failed to run custom build command for `mjolnir-api v0.1.0 (file://../mjolnir/mjolnir-api)`
+// process didn't exit successfully: `/../mjolnir/target/debug/build/mjolnir-api-2276cca5c8021937/build-script-build` (exit code: 101)
+// --- stderr
+// rustproto.proto: File not found.
+// protos/mjolnir.proto: Import "rustproto.proto" was not found or had errors.
+// thread 'main' panicked at 'protoc: Error { repr: Custom(Custom { kind: Other, error: StringError("protoc exited with non-zero exit code") }) }', /checkout/src/libcore/result.rs:906:4
+// note: Run with `RUST_BACKTRACE=1` for a backtrace.
+
+// import "rustproto.proto";
+
+// option (rustproto.carllerche_bytes_for_bytes_all) = true;
+// option (rustproto.carllerche_bytes_for_string_all) = true;
+
 package Mjolnir;
 
 import "protos/agent.proto";
