@@ -22,6 +22,22 @@ mod tests {
         let remediation2 = r2.into();
         assert_eq!(remediation, remediation2);
     }
+
+    #[test]
+    fn it_serializes_and_deserializes_without_optionals() {
+        let remediation = Remediation {
+            plugin: "Test".into(),
+            target: None,
+            args: vec!["body".into()],
+        };
+
+        let request: RemediationRequest = remediation.clone().into();
+
+        let bytes = request.write_to_bytes().unwrap();
+        let r2 = parse_from_bytes::<RemediationRequest>(&bytes).unwrap();
+        let remediation2 = r2.into();
+        assert_eq!(remediation, remediation2);
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

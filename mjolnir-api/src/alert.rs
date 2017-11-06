@@ -20,6 +20,21 @@ mod tests {
         let alert2 = parse_from_bytes::<plugin::Alert>(&bytes).unwrap().into();
         assert_eq!(alert, alert2);
     }
+
+    #[test]
+    fn it_serializes_and_deserializes_without_optionals() {
+        let alert = Alert {
+            title: "Test".into(),
+            name: None,
+            source: None,
+        };
+
+        let request: plugin::Alert = alert.clone().into();
+
+        let bytes = request.write_to_bytes().unwrap();
+        let alert2 = parse_from_bytes::<plugin::Alert>(&bytes).unwrap().into();
+        assert_eq!(alert, alert2);
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

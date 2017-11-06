@@ -300,7 +300,7 @@ impl Master {
                 for file in dir {
                     if let Ok(file) = file {
                         if let Ok(output) = Command::new(file.path()).output() {
-                            if let Some(plugin) = PluginEntry::try_from(
+                            if let Ok(plugin) = PluginEntry::try_from(
                                 &output.stdout,
                                 file.path(),
                             )

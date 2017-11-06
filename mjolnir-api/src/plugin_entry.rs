@@ -47,6 +47,13 @@ mod tests {
     }
 
     #[test]
+    fn it_fails_parsing_gracefully() {
+        let buff = [12];
+        let plugin = PluginEntry::try_from(&buff, PathBuf::from("/tmp"));
+        assert!(plugin.is_err());
+    }
+
+    #[test]
     fn it_creates_a_plugin_entry_from_protobuf() {
         let buff = [
             10,
@@ -140,15 +147,14 @@ pub struct PluginEntry {
 }
 
 impl PluginEntry {
-    pub fn try_from(input: &[u8], path: PathBuf) -> Option<PluginEntry> {
+    pub fn try_from(input: &[u8], path: PathBuf) -> Result<PluginEntry,String> {
         match plugin::Discover::try_from(input) {
             Ok(entry) => {
                 let p: PluginEntry = entry.into();
-                Some(p.with_path(path))
+                Ok(p.with_path(path))
             }
             Err(e) => {
-                println!("Problem parsing: {:?}", e);
-                None
+                Err(format!("Problem parsing: {:?}", e))
             }
         }
     }
