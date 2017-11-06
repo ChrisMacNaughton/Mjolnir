@@ -2,6 +2,29 @@ use std::net::IpAddr;
 
 use proto;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    pub use protobuf::core::{Message, parse_from_bytes};
+
+    #[test]
+    fn it_serializes_and_deserializes() {
+        let register = Register {
+            ip: "10.0.0.1".parse().unwrap(),
+            port: 12011,
+            hostname: "awesome.local".into(),
+        };
+
+        let request: proto::agent::Register = register.clone().into();
+
+        let bytes = request.write_to_bytes().unwrap();
+        let register2 = parse_from_bytes::<proto::agent::Register>(&bytes).unwrap().into();
+        assert_eq!(register, register2);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Register {
     pub ip: IpAddr,
     pub port: u16,

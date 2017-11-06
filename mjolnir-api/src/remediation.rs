@@ -1,6 +1,29 @@
 use plugin::RemediationRequest;
 use RepeatedField;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    pub use protobuf::core::{Message, parse_from_bytes};
+
+    #[test]
+    fn it_serializes_and_deserializes() {
+        let remediation = Remediation {
+            plugin: "Test".into(),
+            target: None,
+            args: vec!["body".into()],
+        };
+
+        let request: RemediationRequest = remediation.clone().into();
+
+        let bytes = request.write_to_bytes().unwrap();
+        let r2 = parse_from_bytes::<RemediationRequest>(&bytes).unwrap();
+        let remediation2 = r2.into();
+        assert_eq!(remediation, remediation2);
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Remediation {
     plugin: String,
@@ -19,6 +42,12 @@ impl<'a> From<&'a RemediationRequest> for Remediation {
             },
             args: remediation.get_args().into(),
         }
+    }
+}
+
+impl From<RemediationRequest> for Remediation {
+    fn from(remediation: RemediationRequest) -> Remediation {
+        (&remediation).into()
     }
 }
 

@@ -1,5 +1,27 @@
 use super::proto::plugin;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    pub use protobuf::core::{Message, parse_from_bytes};
+
+    #[test]
+    fn it_serializes_and_deserializes() {
+        let alert = Alert {
+            title: "Test".into(),
+            name: None,
+            source: Some("test".into()),
+        };
+
+        let request: plugin::Alert = alert.clone().into();
+
+        let bytes = request.write_to_bytes().unwrap();
+        let alert2 = parse_from_bytes::<plugin::Alert>(&bytes).unwrap().into();
+        assert_eq!(alert, alert2);
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alert {
     pub title: String,
@@ -22,6 +44,12 @@ impl<'a> From<&'a plugin::Alert> for Alert {
                 None
             },
         }
+    }
+}
+
+impl From<plugin::Alert> for Alert {
+    fn from(alert: plugin::Alert) -> Alert {
+        (&alert).into()
     }
 }
 
