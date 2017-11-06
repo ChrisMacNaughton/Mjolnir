@@ -10,7 +10,7 @@ mod tests {
     fn it_serializes_and_deserializes() {
         let alert = Alert {
             title: "Test".into(),
-            name: None,
+            name: Some("placeholder".into()),
             source: Some("test".into()),
         };
 

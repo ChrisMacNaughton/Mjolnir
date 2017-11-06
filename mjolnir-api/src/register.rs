@@ -10,11 +10,7 @@ mod tests {
 
     #[test]
     fn it_serializes_and_deserializes() {
-        let register = Register {
-            ip: "10.0.0.1".parse().unwrap(),
-            port: 12011,
-            hostname: "awesome.local".into(),
-        };
+        let register = Register::new("10.0.0.1".parse().unwrap(), 12011, "awesome.local");
 
         let request: proto::agent::Register = register.clone().into();
 

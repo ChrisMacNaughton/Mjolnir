@@ -28,7 +28,13 @@ mod tests {
                     source: Some("test".into()),
                 }
             ],
-            remediations: vec![],
+            remediations: vec![
+                Remediation {
+                    plugin: "Test".into(),
+                    target: Some("awesomehost.local".into()),
+                    args: vec!["body".into()],
+                },
+            ],
             path: PathBuf::from("/tmp/test"),
         };
 

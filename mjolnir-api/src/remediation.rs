@@ -11,7 +11,7 @@ mod tests {
     fn it_serializes_and_deserializes() {
         let remediation = Remediation {
             plugin: "Test".into(),
-            target: None,
+            target: Some("awesomehost.local".into()),
             args: vec!["body".into()],
         };
 
@@ -26,9 +26,9 @@ mod tests {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Remediation {
-    plugin: String,
-    target: Option<String>,
-    args: Vec<String>,
+    pub plugin: String,
+    pub target: Option<String>,
+    pub args: Vec<String>,
 }
 
 impl<'a> From<&'a RemediationRequest> for Remediation {
