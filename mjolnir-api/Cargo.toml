@@ -13,4 +13,4 @@ protoc-rust = "1.4"
 protoc = "1.4"
 
 [dependencies]
-protobuf = "1.4"
+protobuf = { version = "1.4", features = ["with-bytes"] }

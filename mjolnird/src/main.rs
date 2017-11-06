@@ -1,4 +1,5 @@
-#[macro_use] extern crate clap;
+#[macro_use]
+extern crate clap;
 extern crate hostname;
 extern crate hyper;
 extern crate futures;
@@ -17,7 +18,7 @@ use config::Config;
 
 fn main() {
     println!("Welcome to Mjölnir");
-    
+
     let config = Config::get_config();
     println!("About to start with {:?}", config);
 

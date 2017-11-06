@@ -1,4 +1,4 @@
-use std::net::{SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -19,8 +19,12 @@ mod tests {
 
     #[test]
     fn it_builds_a_master_config() {
-        let args = Config::matches()
-            .get_matches_from(vec!["mjolnird", "--ip=127.0.0.1", "--bind=192.168.0.101:11011", "master"]);
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--ip=127.0.0.1",
+            "--bind=192.168.0.101:11011",
+            "master",
+        ]);
         let config = Config::from_args(args);
         assert_eq!(config.mode, Mode::Master);
         assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
@@ -28,19 +32,28 @@ mod tests {
 
     #[test]
     fn it_builds_a_master_config_with_plugin_path() {
-        let args = Config::matches()
-            .get_matches_from(vec!["mjolnird", "--bind=192.168.0.101:11011", "--plugins=/usr/local/share", "--ip=127.0.0.1", "master"]);
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--bind=192.168.0.101:11011",
+            "--plugins=/usr/local/share",
+            "--ip=127.0.0.1",
+            "master",
+        ]);
         let config = Config::from_args(args);
         assert_eq!(config.mode, Mode::Master);
         assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
         assert_eq!(config.plugin_path, PathBuf::from("/usr/local/share"));
-        
+
     }
 
     #[test]
     fn it_builds_a_default_agent_config() {
-        let args = Config::matches()
-            .get_matches_from(vec!["mjolnird", "--ip=127.0.0.1", "agent", "--master=192.168.0.100:11011"]);
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--ip=127.0.0.1",
+            "agent",
+            "--master=192.168.0.100:11011",
+        ]);
         let config = Config::from_args(args);
         assert_eq!(
             config.mode,
@@ -67,62 +80,77 @@ mod tests {
     fn it_can_parse_a_master_with_defaults() {
         let input = "127.0.0.1";
         let master: Master = input.parse().unwrap();
-        assert_eq!(master, Master{
-            ip: "127.0.0.1".into(),
-            http_port: 11011,
-            zmq_port: 12011
-        });
+        assert_eq!(
+            master,
+            Master {
+                ip: "127.0.0.1".into(),
+                http_port: 11011,
+                zmq_port: 12011,
+            }
+        );
     }
 
     #[test]
     fn it_can_parse_a_master_with_http_defaults() {
         let input = "127.0.0.1::8080";
         let master: Master = input.parse().unwrap();
-        assert_eq!(master, Master{
-            ip: "127.0.0.1".into(),
-            http_port: 11011,
-            zmq_port: 8080
-        });
+        assert_eq!(
+            master,
+            Master {
+                ip: "127.0.0.1".into(),
+                http_port: 11011,
+                zmq_port: 8080,
+            }
+        );
     }
 
     #[test]
     fn it_can_parse_a_master_with_explicit_zmq_defaults() {
         let input = "127.0.0.1:8080:";
         let master: Master = input.parse().unwrap();
-        assert_eq!(master, Master{
-            ip: "127.0.0.1".into(),
-            http_port: 8080,
-            zmq_port: 12011
-        });
+        assert_eq!(
+            master,
+            Master {
+                ip: "127.0.0.1".into(),
+                http_port: 8080,
+                zmq_port: 12011,
+            }
+        );
     }
 
     #[test]
     fn it_can_parse_a_master_with_implicit_zmq_defaults() {
         let input = "127.0.0.1:8080";
         let master: Master = input.parse().unwrap();
-        assert_eq!(master, Master{
-            ip: "127.0.0.1".into(),
-            http_port: 8080,
-            zmq_port: 12011
-        });
+        assert_eq!(
+            master,
+            Master {
+                ip: "127.0.0.1".into(),
+                http_port: 8080,
+                zmq_port: 12011,
+            }
+        );
     }
 
     #[test]
     fn it_can_parse_a_master_with_no_defaults() {
         let input = "127.0.0.1:8080:9080";
         let master: Master = input.parse().unwrap();
-        assert_eq!(master, Master{
-            ip: "127.0.0.1".into(),
-            http_port: 8080,
-            zmq_port: 9080
-        });
+        assert_eq!(
+            master,
+            Master {
+                ip: "127.0.0.1".into(),
+                http_port: 8080,
+                zmq_port: 9080,
+            }
+        );
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub bind_address: SocketAddr,
-    pub my_ip: String,
+    pub my_ip: IpAddr,
     pub zmq_port: u16,
     pub zmq_address: String,
     pub mode: Mode,
@@ -130,7 +158,7 @@ pub struct Config {
     pub config_path: PathBuf,
 }
 
-#[derive(Clone, Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Master {
     pub ip: String,
     pub http_port: u16,
@@ -147,7 +175,7 @@ impl FromStr for Master {
         let mut parts = s.split(":");
         let ip = match parts.next() {
             Some(ip) => ip,
-            None => return Err(AddrParseError(()))
+            None => return Err(AddrParseError(())),
         };
         let http_port = if let Some(port) = parts.next() {
             if port == "" {
@@ -155,7 +183,7 @@ impl FromStr for Master {
             } else {
                 match port.parse() {
                     Ok(p) => p,
-                    Err(_) => return Err(AddrParseError(()))
+                    Err(_) => return Err(AddrParseError(())),
                 }
             }
         } else {
@@ -167,7 +195,7 @@ impl FromStr for Master {
             } else {
                 match port.parse() {
                     Ok(p) => p,
-                    Err(_) => return Err(AddrParseError(()))
+                    Err(_) => return Err(AddrParseError(())),
                 }
             }
         } else {
@@ -175,7 +203,7 @@ impl FromStr for Master {
         };
         Ok(Master {
             ip: ip.into(),
-            http_port:  http_port,
+            http_port: http_port,
             zmq_port: zmq_port,
         })
     }
@@ -218,7 +246,7 @@ impl<'a, 'b> Config {
                     .help("Path to load plugins from")
                     .long("plugins")
                     .short("p")
-                    .takes_value(true)
+                    .takes_value(true),
             )
             .arg(
                 Arg::with_name("my_ip")
@@ -226,27 +254,29 @@ impl<'a, 'b> Config {
                     .long("ip")
                     .short("i")
                     .required(true)
-                    .takes_value(true)
+                    .takes_value(true),
             )
             .subcommand(
                 SubCommand::with_name("agent")
                     .help("THe machine agent that runs on every machine")
                     .arg(
                         Arg::with_name("master")
-                            .help("IP Address[es] of the master, in the format x.x.x.x:HTTP_PORT:ZMQ_PORT.
-                                  If either of the ports are empty (x.x.x.x::ZMQ_PORT), then the defaults
-                                  will be used. At a minimum, the IP address is required")
+                            .help(
+                                "IP Address[es] of the master, in the format
+                                  x.x.x.x:HTTP_PORT:ZMQ_PORT. If either of the
+                                  ports are empty (x.x.x.x::ZMQ_PORT), then the defaults
+                                  will be used. At a minimum, the IP address is required",
+                            )
                             .long("master")
                             .short("m")
                             .required(true)
                             .takes_value(true)
                             .multiple(true),
-                    )
+                    ),
             )
-            .subcommand(
-                SubCommand::with_name("master")
-                    .help("The daemon that controls everything")
-                    )
+            .subcommand(SubCommand::with_name("master").help(
+                "The daemon that controls everything",
+            ))
     }
 
     pub fn get_config() -> Config {
@@ -262,8 +292,9 @@ impl<'a, 'b> Config {
                     .values_of("master")
                     .unwrap()
                     .map(|ip| {
-                        ip.parse()
-                            .expect(&format!("{} is an invalid address", ip)[..])
+                        ip.parse().expect(
+                            &format!("{} is an invalid address", ip)[..],
+                        )
                     })
                     .collect();
                 Mode::Agent(masters)
@@ -278,36 +309,42 @@ impl<'a, 'b> Config {
             .parse()
             .expect("You provided an invalid bind address");
 
-        let zmq_address = format!("tcp://{}", matches
-            .value_of("bind")
-            .unwrap_or_else(|| match mode {
+        let zmq_address = format!(
+            "tcp://{}",
+            matches.value_of("bind").unwrap_or_else(|| match mode {
                 Mode::Master => "0.0.0.0:12011",
                 Mode::Agent(_) => "0.0.0.0:12012",
-            }));
-        
+            })
+        );
+
         let zmq_port = zmq_address.split(":").last().unwrap().parse().unwrap();
 
-        let path: PathBuf = if let Some(p) = matches
-            .value_of("plugins") {
-                Some(PathBuf::from(p))
-            } else {
-                xdg::BaseDirectories::with_prefix("mjolnir")
-                    .ok()
-                    .and_then(|xdg| xdg.create_data_directory("plugins").ok())
-            }.expect("Couldn't determine plugin path, please specify one");
+        let path: PathBuf = if let Some(p) = matches.value_of("plugins") {
+            Some(PathBuf::from(p))
+        } else {
+            xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
+                |xdg| {
+                    xdg.create_data_directory("plugins").ok()
+                },
+            )
+        }.expect("Couldn't determine plugin path, please specify one");
         // println!("XDG_DATA_DIRS: {:?}", path);
-        let config_path: PathBuf = if let Some(p) = matches
-            .value_of("config") {
-                Some(PathBuf::from(p))
-            } else {
-                xdg::BaseDirectories::with_prefix("mjolnir")
-                    .ok()
-                    .and_then(|xdg| xdg.create_config_directory("").ok())
-            }.expect("Couldn't determine config path, please specify one");
+        let config_path: PathBuf = if let Some(p) = matches.value_of("config") {
+            Some(PathBuf::from(p))
+        } else {
+            xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
+                |xdg| {
+                    xdg.create_config_directory("").ok()
+                },
+            )
+        }.expect("Couldn't determine config path, please specify one");
+        let my_ip = matches.value_of("my_ip").unwrap().parse().expect(
+            "Couldn't understand my IP as an IP address",
+        );
         Config {
             bind_address: address,
             zmq_address: zmq_address,
-            my_ip: matches.value_of("my_ip").unwrap().into(),
+            my_ip: my_ip,
             mode: mode,
             plugin_path: path,
             config_path: config_path,

@@ -1,6 +1,4 @@
 /target/
 **/*.rs.bk
 Cargo.lock
-mjolnir-api/src/agent.rs
-mjolnir-api/src/plugin.rs
-mjolnir-api/src/mjolnir.rs
+mjolnir-api/src/proto

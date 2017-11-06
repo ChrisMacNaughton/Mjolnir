@@ -3,10 +3,38 @@ option optimize_for = SPEED;
 
 package Mjolnir;
 
-
 // Agents register themselves with a controller
 message Register {
-  required string ip = 1;
+  required IpAddr ip = 1;
   required int32 port = 2;
   required string hostname = 3;
+}
+
+enum Version {
+    V4 = 0;
+    V6 = 1;
+  }
+
+message IpAddr {
+  required Version version = 1;
+  optional Ipv4Addr v4 = 2;
+  optional Ipv6Addr v6 = 3;
+}
+
+message Ipv4Addr {
+  required uint32 a = 1;
+  required uint32 c = 2;
+  required uint32 b = 3;
+  required uint32 d = 4;
+}
+
+message Ipv6Addr {
+  required uint32 a = 1;
+  required uint32 c = 2;
+  required uint32 b = 3;
+  required uint32 d = 4;
+  required uint32 e = 5;
+  required uint32 f = 6;
+  required uint32 g = 7;
+  required uint32 h = 8;
 }
