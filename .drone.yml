@@ -1,6 +1,7 @@
 pipeline:      
   test:
-    image: docker pull iceyec/mjolnir-ci
+    image: iceyec/mjolnir-ci
+    pull: true
     commands:
       - rustup override add ${VERSION}
       - cargo test --all
