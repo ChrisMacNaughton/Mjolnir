@@ -1,0 +1,12 @@
+pipeline:      
+  test:
+    image: docker pull iceyec/mjolnir-ci
+    commands:
+      - rustup override add ${VERSION}
+      - cargo test --all
+
+matrix:
+  VERSION:
+    - stable
+    - beta
+    - nightly
