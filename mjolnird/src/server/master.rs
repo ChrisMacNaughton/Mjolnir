@@ -4,6 +4,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread;
 
 use futures;
@@ -20,7 +21,7 @@ use zmq::{Message, Result as ZmqResult};
 use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
-use mjolnir_api::{Operation, OperationType as OpType, PluginEntry, Register};
+use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register};
 use server::{zmq_listen, connect, server_pubkey, load_pipeline};
 use config::Config;
 
@@ -55,8 +56,8 @@ mod tests {
             "master",
         ]);
         let config = Config::from_args(args);
-        let mut master = Master::default()
-            .with_plugin_path(config.plugin_path.clone());
+        let (mut master, _receiver) = Master::new();
+        master = master.with_plugin_path(config.plugin_path.clone());
         master.plugins.push(PluginEntry {
             name: "clean_disk".into(),
             author: "test author".into(),
@@ -86,12 +87,18 @@ impl PartialEq for Agent {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Master {
     agents: Arc<Mutex<Vec<Agent>>>,
     plugins: Vec<PluginEntry>,
     plugin_path: Option<PathBuf>,
     pipelines: Vec<Pipeline>,
+    sender: Sender<MasterAction>,
+}
+
+enum MasterAction {
+    Webhook(String),
+    Alert(Alert),
 }
 
 impl Service for Master {
@@ -142,6 +149,29 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
 }
 
 impl Master {
+    fn new() -> (Master, Receiver<MasterAction>) {
+        let (sender, receiver) = channel();
+        (
+            Master {
+                agents: Arc::new(Mutex::new(vec![])),
+                plugins: vec![],
+                plugin_path: None,
+                pipelines: vec![],
+                sender: sender,
+            },
+            receiver
+        )
+    }
+
+    fn handle_webhook(&self, data: String) {
+        println!("result is {}", data);
+        self.sender.send(MasterAction::Alert(Alert {
+            title: "alertmanager".into(),
+            name: None,
+            source: None,
+        }));
+    }
+
     fn webhook(
         &self,
         name: &str,
@@ -161,17 +191,18 @@ impl Master {
             .nth(0)
             .map(|p| p.clone());
         // let hook: Option<PluginEntry> = *hook.clone();
-
+        let sender = self.sender.clone();
         Box::new(req.body().concat2().map(move |body| {
             // let plugins = plugins.clone();
             let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
                 match String::from_utf8(body.to_vec()) {
-                    Ok(s) => Box::new(Body::from(process_webhook(hook, s))),
+                    Ok(s) => {
+                        let webhook_output = process_webhook(hook, s);
+                        let _ = sender.send(MasterAction::Webhook(webhook_output));
+                        Box::new(Body::from("Ok"))
+                    },
                     Err(_) => Box::new(Body::from("Invalid Body")),
                 }
-            // println!("Body is: {:?}", body);
-            // cmd.arg(hook.name);
-            // hook.args.each
             } else {
                 Box::new(Body::from("Unknown Webhook"))
             };
@@ -184,8 +215,8 @@ impl Master {
     }
 
     pub fn bind(config: Config) -> ZmqResult<()> {
-        let master = Master::default()
-            .with_plugin_path(config.plugin_path.clone())
+        let (mut master, receiver) = Master::new();
+        master = master.with_plugin_path(config.plugin_path.clone())
             .load_plugins()
             .load_pipelines(&config);
 
@@ -201,6 +232,7 @@ impl Master {
         let background_agents = master.agents.clone();
         let background_config = config.clone();
         let ping_duration = Duration::from_millis(500);
+        let mpsc_duration = Duration::from_millis(50);
         thread::spawn(move|| {
             let server_pubkey = server_pubkey(&background_config);
             loop {
@@ -209,7 +241,7 @@ impl Master {
                         match connect(&agent.hostname, agent.port, &server_pubkey){
                             Ok(socket) => {
                                 let mut o = Operation::new();
-                                println!("Creating PING");
+                                // println!("Creating PING");
                                 o.set_operation_type(OpType::PING);
 
                                 let encoded = o.write_to_bytes().unwrap();
@@ -229,13 +261,33 @@ impl Master {
                 thread::sleep(ping_duration);
             }
         });
+        let bg_master = master.clone();
+        thread::spawn(move|| {
+            loop {
+                match receiver.try_recv() {
+                    Ok(s) => {
+                        match s {
+                            MasterAction::Webhook(s) => bg_master.handle_webhook(s),
+                            MasterAction::Alert(alert) => bg_master.remediate(alert)
+                        }
+                    },
+                    Err(_e) => {},
+                }
+                thread::sleep(mpsc_duration);
+            }
+        });
         let _ = master.setup_zmq(&config)?;
         thread::park();
         Ok(())
     }
 
+    fn remediate(&self, alert: Alert) {
+        println!("Remediating {:?}", alert);
+    }
+
     fn setup_zmq(&self, config: &Config) -> ZmqResult<()> {
         let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
+        let sender = self.sender.clone();
         zmq_listen(
             config,
             Box::new(move |operation, responder| {
@@ -243,7 +295,7 @@ impl Master {
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
-                        println!("Creating pong");
+                        // println!("Creating pong");
                         o.set_operation_type(OpType::PONG);
                         o.set_ping_id(operation.get_ping_id());
                         let encoded = o.write_to_bytes().unwrap();
@@ -279,6 +331,18 @@ impl Master {
                         }
 
                         println!("#{} Agents", agents.len());
+                    }
+                    OpType::ALERT => {
+                        let mut o = Operation::new();
+                        println!("Creating ack for alert");
+                        o.set_operation_type(OpType::ACK);
+
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
+
+                        let alert: Alert = operation.get_alert().into();
+                        let _ = sender.send(MasterAction::Alert(alert));
                     }
                     _ => {
                         println!("Not quite handling {:?} yet", operation);

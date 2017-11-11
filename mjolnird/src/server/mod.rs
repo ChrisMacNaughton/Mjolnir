@@ -157,7 +157,7 @@ fn server_pubkey(config: &Config) -> String {
 }
 
 fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
-    println!("Starting zmq sender with version({:?})", zmq::version());
+    // println!("Starting zmq sender with version({:?})", zmq::version());
     let context = zmq::Context::new();
     let requester = context.socket(zmq::REQ)?;
     let client_keypair = zmq::CurveKeyPair::new()?;
@@ -165,13 +165,13 @@ fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
     requester.set_curve_serverkey(server_publickey)?;
     requester.set_curve_publickey(&client_keypair.public_key)?;
     requester.set_curve_secretkey(&client_keypair.secret_key)?;
-    println!("Connecting to tcp://{}:{}", host, port);
+    // println!("Connecting to tcp://{}:{}", host, port);
     assert!(
         requester
             .connect(&format!("tcp://{}:{}", host, port))
             .is_ok()
     );
-    println!("Client mechanism: {:?}", requester.get_mechanism());
+    // println!("Client mechanism: {:?}", requester.get_mechanism());
 
     Ok(requester)
 }
@@ -189,7 +189,7 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         let _ = file.read_to_string(&mut key);
         s.set_curve_secretkey(&key)?;
     } else {
-        println!("Creating new curve keypair");
+        // println!("Creating new curve keypair");
         let keypair = zmq::CurveKeyPair::new()?;
         s.set_curve_secretkey(&keypair.secret_key)?;
 
@@ -199,8 +199,8 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         f.write(keypair.secret_key.as_bytes()).unwrap();
     }
 
-    println!("Server mechanism: {:?}", s.get_mechanism());
-    println!("Curve server: {:?}", s.is_curve_server());
+    // println!("Server mechanism: {:?}", s.get_mechanism());
+    // println!("Curve server: {:?}", s.is_curve_server());
 
     Ok(())
 }
@@ -225,8 +225,8 @@ fn zmq_listen(
     loop {
         match responder.recv_bytes(0) {
             Ok(msg) => {
-                println!("Got msg len: {}", msg.len());
-                println!("Parsing msg {:?} as hex", msg);
+                // println!("Got msg len: {}", msg.len());
+                // println!("Parsing msg {:?} as hex", msg);
                 let operation = match parse_from_bytes::<Operation>(&msg) {
                     Ok(bytes) => bytes,
                     Err(e) => {
@@ -234,7 +234,7 @@ fn zmq_listen(
                         continue;
                     }
                 };
-                println!("Operation is: {:?}", operation);
+                // println!("Operation is: {:?}", operation);
                 callback(operation, &responder)?
             }
             Err(e) => {

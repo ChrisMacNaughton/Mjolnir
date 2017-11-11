@@ -20,7 +20,7 @@ package Mjolnir;
 import "protos/agent.proto";
 import "protos/plugin.proto";
 
-enum OperationType{
+enum OperationType {
     REGISTER = 0;
     PING = 1;
     PONG = 2;

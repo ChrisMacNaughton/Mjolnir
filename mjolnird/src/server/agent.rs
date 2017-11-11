@@ -50,7 +50,7 @@ impl Agent {
                     match connect(&master.ip, master.zmq_port, &server_pubkey){
                         Ok(socket) => {
                             let mut o = Operation::new();
-                            println!("Creating PING");
+                            // println!("Creating PING");
                             o.set_operation_type(OpType::PING);
 
                             let encoded = o.write_to_bytes().unwrap();
@@ -78,7 +78,7 @@ impl Agent {
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
-                        println!("Creating pong");
+                        // println!("Creating pong");
                         o.set_operation_type(OpType::PONG);
                         o.set_ping_id(operation.get_ping_id());
                         let encoded = o.write_to_bytes().unwrap();
