@@ -37,12 +37,20 @@ mod tests {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq)]
 pub struct Alert {
+    /// In config, this is referred to as type
     pub title: String,
     pub name: Option<String>,
     pub source: Option<String>,
 }
+
+impl PartialEq for Alert {
+    fn eq(&self, other: &Alert) -> bool {
+        self.title == other.title && self.name == other.name
+    }
+}
+
 
 impl<'a> From<&'a plugin::Alert> for Alert {
     fn from(alert: &plugin::Alert) -> Alert {

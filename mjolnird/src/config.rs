@@ -216,7 +216,7 @@ pub enum Mode {
 }
 
 impl<'a, 'b> Config {
-    fn matches() -> App<'a, 'b> {
+    pub fn matches() -> App<'a, 'b> {
         App::new("Mjölnir")
             .version(crate_version!())
             .author(crate_authors!())
@@ -283,7 +283,7 @@ impl<'a, 'b> Config {
         Config::from_args(Config::matches().get_matches())
     }
 
-    fn from_args(matches: ArgMatches) -> Config {
+    pub fn from_args(matches: ArgMatches) -> Config {
         let mode = match matches.subcommand() {
             ("master", Some(_master_matches)) => Mode::Master,
             ("agent", Some(agent_matches)) => {
@@ -329,7 +329,7 @@ impl<'a, 'b> Config {
             )
         }.expect("Couldn't determine plugin path, please specify one");
         // println!("XDG_DATA_DIRS: {:?}", path);
-        let config_path: PathBuf = if let Some(p) = matches.value_of("config") {
+        let config_path: PathBuf = if let Some(p) = matches.value_of("config path") {
             Some(PathBuf::from(p))
         } else {
             xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(

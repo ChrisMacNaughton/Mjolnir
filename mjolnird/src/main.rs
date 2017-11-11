@@ -6,6 +6,7 @@ extern crate futures;
 extern crate tokio_core;
 extern crate protobuf;
 extern crate xdg;
+extern crate yaml_rust;
 extern crate zmq;
 // workspace members
 extern crate mjolnir;

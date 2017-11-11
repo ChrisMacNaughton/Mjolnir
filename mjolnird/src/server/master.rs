@@ -19,8 +19,9 @@ use zmq::{Message, Result as ZmqResult};
 
 use protobuf::Message as ProtobufMsg;
 
+use mjolnir::Pipeline;
 use mjolnir_api::{Operation, OperationType as OpType, PluginEntry, Register};
-use server::{zmq_listen, connect, server_pubkey};
+use server::{zmq_listen, connect, server_pubkey, load_pipeline};
 use config::Config;
 
 #[cfg(test)]
@@ -41,6 +42,33 @@ mod tests {
 
         let body = process_webhook(plugin, "test".into());
         assert_eq!(body, "plugin=test-name body=test\n")
+    }
+
+    #[test]
+    fn it_validates_pipelines() {
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--bind=192.168.0.101:11011",
+            "--config=../examples/configs",
+            // "--plugins=/usr/local/share",
+            "--ip=127.0.0.1",
+            "master",
+        ]);
+        let config = Config::from_args(args);
+        let mut master = Master::default()
+            .with_plugin_path(config.plugin_path.clone());
+        master.plugins.push(PluginEntry {
+            name: "clean_disk".into(),
+            author: "test author".into(),
+            version: "test version".into(),
+            webhook: true,
+            alerts: vec![],
+            remediations: vec![],
+            path: PathBuf::from("/bin/echo"),
+        });
+        master = master
+            .load_pipelines(&config);
+        assert!(master.pipelines.len() == 1);
     }
 }
 
@@ -63,6 +91,7 @@ pub struct Master {
     agents: Arc<Mutex<Vec<Agent>>>,
     plugins: Vec<PluginEntry>,
     plugin_path: Option<PathBuf>,
+    pipelines: Vec<Pipeline>,
 }
 
 impl Service for Master {
@@ -157,7 +186,8 @@ impl Master {
     pub fn bind(config: Config) -> ZmqResult<()> {
         let master = Master::default()
             .with_plugin_path(config.plugin_path.clone())
-            .load_plugins();
+            .load_plugins()
+            .load_pipelines(&config);
 
         let http_config = config.clone();
 
@@ -317,7 +347,28 @@ impl Master {
             }
             self.plugins = plugins;
         }
-        println!("Self is {:?}", self);
         self
+    }
+
+    fn load_pipelines(mut self, config: &Config) -> Self {
+        let pipelines = load_pipeline(config);
+
+        match self.validate_pipelines(&pipelines) {
+            Ok(()) => {},
+            Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
+        }
+
+        self.pipelines = pipelines;
+        self
+    }
+
+    fn validate_pipelines(&self, pipelines: &Vec<Pipeline>) -> Result<(), String> {
+        for pipeline in pipelines {
+            println!("Validating we have a plugin configured for '{}'", pipeline.action.plugin);
+            if !self.plugins.iter().any(|p| p.name == pipeline.action.plugin) {
+                return Err(format!("{} has no matching plugin", pipeline.action.plugin));
+            }
+        }
+        Ok(())
     }
 }
