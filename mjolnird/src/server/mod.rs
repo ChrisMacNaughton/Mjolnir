@@ -4,23 +4,141 @@ use std::time::Duration;
 use std::fs::File;
 use std::io::{Read, Write};
 
+use yaml_rust::{YamlLoader};
+use yaml_rust::Yaml::Array;
+
 use zmq::{self, Socket, Result as ZmqResult};
 
+use mjolnir::Pipeline;
 use config::{Config, Mode};
 
 mod master;
 mod agent;
 
 
-use mjolnir_api::{Operation, parse_from_bytes};
+use mjolnir_api::{Alert, Remediation, Operation, parse_from_bytes};
 
-// const PHRASE: &'static str = "Hello, World!";
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_loads_pipeline_from_yaml() {
+        let yaml = r#"pipelines:
+    - alert:
+        type: alertmanager
+        name: disk-full
+      action:
+        type: clean_disk
+        # Optional: 
+        # args: [] 
+    - alert:
+        type: test
+      action:
+        type: something_else
+        args:
+        - name=test
+        "#;
+        let pipelines = load_pipeline_from_yaml(yaml);
+        println!("Pipelines: {:?}", pipelines);
+        assert_eq!(
+            vec![
+                Pipeline {
+                    trigger: Alert {
+                        title: "alertmanager".into(),
+                        name: Some("disk-full".into()),
+                        source: None
+                    },
+                    action: Remediation {
+                        plugin: "clean_disk".into(),
+                        target: None,
+                        args: vec![]
+                    }
+                }, Pipeline {
+                    trigger: Alert {
+                        title: "test".into(),
+                        name: None,
+                        source: None
+                    }, action: Remediation {
+                        plugin: "something_else".into(),
+                        target: None,
+                        args: vec!["name=test".into()] } }
+            ],
+            pipelines
+        )
+    }
+}
 
 pub fn bind(config: Config) -> ZmqResult<()> {
     match config.mode.clone() {
         Mode::Agent(masters) => agent::Agent::bind(config, masters),
         Mode::Master => master::Master::bind(config),
     }
+}
+
+fn load_pipeline(config: &Config) -> Vec<Pipeline> {
+    let mut config_file_path = config.config_path.clone();
+    config_file_path.push("pipelines.yaml");
+    let mut s = String::new();
+    match File::open(&config_file_path) {
+        Ok(mut f) => {
+            let _ = f.read_to_string(&mut s);
+        },
+        Err(e) => panic!("Couldn't open pipeline config file ({}): {:?}", config_file_path.display(), e),
+    }
+    
+    load_pipeline_from_yaml(&s)
+}
+
+fn load_pipeline_from_yaml(yaml: &str) -> Vec<Pipeline> {
+    let mut v = vec![];
+    match YamlLoader::load_from_str(yaml) {
+        Ok(yaml) => {
+            // println!("Yaml is: {:?}", yaml);
+            if let Some(yaml) = yaml.get(0) {
+                match yaml["pipelines"] {
+                    Array(ref pipelines) => {
+                        // println!("Pipelines: {:?}", pipelines);
+                        for pipeline in pipelines.iter() {
+                            // println!("pipeline: {:?}", pipeline);
+                            let alert_yaml = &pipeline["alert"];
+                            let alert = Alert {
+                                title: alert_yaml["type"].as_str().expect("Couldn't parse the yaml into a pipeline").into(),
+                                name: alert_yaml["name"].as_str().map(|a| Some(a.into())).unwrap_or(None),
+                                source: None,
+                            };
+                            let remediation_yaml = &pipeline["action"];
+                            let args = match remediation_yaml["args"] {
+                                Array(ref args) => {
+                                    args
+                                        .iter()
+                                        .map(|a| a.as_str())
+                                        .filter(|a| a.is_some())
+                                        .map(|a| a.unwrap().into())
+                                        .collect()
+                                },
+                                _ => vec![]
+                            };
+                            let remediation = Remediation {
+                                plugin: remediation_yaml["type"].as_str().unwrap().into(),
+                                target: None,
+                                args: args,
+                            };
+                            v.push(
+                                Pipeline {
+                                    trigger: alert,
+                                    action: remediation,
+                                }
+                            )
+                        }
+                    },
+                    _ => panic!("Invalid type for pipelines"),
+                }
+            }
+        },
+        Err(e) => println!("Had a problem loading yaml config: {:?}", e),
+    }
+    v
 }
 
 fn server_pubkey(config: &Config) -> String {
