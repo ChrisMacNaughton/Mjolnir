@@ -55,9 +55,18 @@ mod tests {
             "master",
         ]);
         let config = Config::from_args(args);
-        let master = Master::default()
-            .with_plugin_path(config.plugin_path.clone())
-            .load_plugins()
+        let mut master = Master::default()
+            .with_plugin_path(config.plugin_path.clone());
+        master.plugins.push(PluginEntry {
+            name: "clean_disk".into(),
+            author: "test author".into(),
+            version: "test version".into(),
+            webhook: true,
+            alerts: vec![],
+            remediations: vec![],
+            path: PathBuf::from("/bin/echo"),
+        });
+        master = master
             .load_pipelines(&config);
         assert!(master.pipelines.len() == 1);
     }
