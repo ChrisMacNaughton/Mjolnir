@@ -5,8 +5,8 @@ use std::env;
 use std::process;
 use std::io::{self, Write};
 
-use mjolnir_api::{Message, RepeatedField, RemediationResultType};
-use mjolnir_api::plugin::{Alert, Discover, RemediationRequest, RemediationResult};
+use mjolnir_api::{Alert, Message, RepeatedField, RemediationResult, Remediation};
+use mjolnir_api::plugin::{Discover, RemediationRequest};
 
 // What does your plugin look like?
 
@@ -16,33 +16,37 @@ fn generate_usage() -> Discover {
     discover.set_author("Chris MacNaughton <chris@centaurisolutions.nl>".into());
     discover.set_version("0.0.1".into());
     discover.set_webhook(true);
+    let mut alerts = Vec::new();
+    let mut actions = Vec::new();
+    generate_alerts(&mut alerts);
+    generate_actions(&mut actions);
 
-    generate_alerts(discover.mut_alerts());
-    generate_actions(discover.mut_actions());
+    discover.set_actions(Remediation::vec_to_repeated(&actions));
+    discover.set_alerts(Alert::vec_to_repeated(&alerts));
 
     discover
 }
 
 // you can plug in actions and alerts below
 
-fn generate_alerts(_alerts: &mut RepeatedField<Alert>) {
+fn generate_alerts(_alerts: &mut Vec<Alert>) {
     // Your alerts here
 }
 
-fn generate_actions(_actions: &mut RepeatedField<RemediationRequest>) {
+fn generate_actions(_actions: &mut Vec<Remediation>) {
     // Your actions here
 }
 
 // Your plugins should be functions wth this signature
 
 fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
-    let mut result = RemediationResult::new();
-    result.set_result(RemediationResultType::OK);
-    // Your plugin action here
-    println!(
-        "Args for alertmanager are: {:?}\nThis output comes from the `alertmanager` plugin",
-        args
-    );
+    let mut result = RemediationResult::new()
+        .err("Test")
+        .with_alert(Alert {
+            alert_type: "alertmanager".into(),
+            name: Some("disk-full".into()),
+            source: None,
+        });
     result
 }
 
@@ -71,7 +75,11 @@ fn main() {
         process::exit(1);
     });
 
-    f(arg_list);
+    let res = f(arg_list);
+    
+    let bytes = res.write_to_bytes().unwrap();
+
+    io::stdout().write(&bytes).unwrap();
 }
 
 fn get_args() -> HashMap<String, String> {

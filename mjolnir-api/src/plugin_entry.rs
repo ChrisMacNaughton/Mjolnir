@@ -19,11 +19,11 @@ mod tests {
             webhook: false,
             alerts: vec![
                 Alert {
-                    title: "Test1".into(),
+                    alert_type: "Test1".into(),
                     name: None,
                     source: Some("test".into()),
                 },Alert {
-                    title: "Test2".into(),
+                    alert_type: "Test2".into(),
                     name: None,
                     source: Some("test".into()),
                 }

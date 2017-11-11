@@ -19,11 +19,13 @@ mod register;
 mod alert;
 mod plugin_entry;
 mod remediation;
+mod remediation_result;
 
 pub use register::Register;
 pub use alert::Alert;
 pub use plugin_entry::PluginEntry;
 pub use remediation::Remediation;
+pub use remediation_result::RemediationResult;
 
 // pub use proto::agent::Register;
 

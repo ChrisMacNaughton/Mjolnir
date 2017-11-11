@@ -1,5 +1,7 @@
 use super::proto::plugin;
 
+use RepeatedField;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -9,7 +11,7 @@ mod tests {
     #[test]
     fn it_serializes_and_deserializes() {
         let alert = Alert {
-            title: "Test".into(),
+            alert_type: "Test".into(),
             name: Some("placeholder".into()),
             source: Some("test".into()),
         };
@@ -24,7 +26,7 @@ mod tests {
     #[test]
     fn it_serializes_and_deserializes_without_optionals() {
         let alert = Alert {
-            title: "Test".into(),
+            alert_type: "Test".into(),
             name: None,
             source: None,
         };
@@ -40,14 +42,14 @@ mod tests {
 #[derive(Clone, Debug, Eq)]
 pub struct Alert {
     /// In config, this is referred to as type
-    pub title: String,
+    pub alert_type: String,
     pub name: Option<String>,
     pub source: Option<String>,
 }
 
 impl PartialEq for Alert {
     fn eq(&self, other: &Alert) -> bool {
-        self.title == other.title && self.name == other.name
+        self.alert_type == other.alert_type && self.name == other.name
     }
 }
 
@@ -55,9 +57,9 @@ impl PartialEq for Alert {
 impl<'a> From<&'a plugin::Alert> for Alert {
     fn from(alert: &plugin::Alert) -> Alert {
         Alert {
-            title: alert.get_title().into(),
-            name: if alert.has_dynamic_name() {
-                Some(alert.get_dynamic_name().to_string())
+            alert_type: alert.get_alert_type().into(),
+            name: if alert.has_name() {
+                Some(alert.get_name().to_string())
             } else {
                 None
             },
@@ -76,18 +78,52 @@ impl From<plugin::Alert> for Alert {
     }
 }
 
-impl From<Alert> for plugin::Alert {
-    fn from(alert: Alert) -> plugin::Alert {
+impl<'a> From<&'a Alert> for plugin::Alert {
+    fn from(alert: &Alert) -> plugin::Alert {
         let mut a = plugin::Alert::default();
-        a.set_title(alert.title);
-        if let Some(name) = alert.name {
-            a.set_dynamic_name(name);
+        a.set_alert_type(alert.alert_type.clone());
+        if let Some(ref name) = alert.name.clone() {
+            a.set_name(name.clone());
         }
-        if let Some(source) = alert.source {
-            a.set_source(source);
+        if let Some(ref source) = alert.source {
+            a.set_source(source.clone());
         }
 
         // d.set_alerts()
         a
+    }
+}
+
+impl From<Alert> for plugin::Alert {
+    fn from(alert: Alert) -> plugin::Alert {
+        let mut a = plugin::Alert::default();
+        a.set_alert_type(alert.alert_type);
+        if let Some(name) = alert.name {
+            a.set_name(name);
+        }
+        if let Some(source) = alert.source {
+            a.set_source(source);
+        }
+        a
+    }
+}
+
+// impl From<Vec<Alert>> for RepeatedField<plugin::Alert> {
+//     fn from(alerts: Vec<Alert>) -> RepeatedField<plugin::Alert> {
+//         let mut repeated_alerts = RepeatedField::default();
+//         for alert in alerts {
+//             repeated_alerts.push(alert.into());
+//         }
+//         repeated_alerts
+//     }
+// }
+
+impl Alert {
+    pub fn vec_to_repeated(alerts: &Vec<Alert>) -> RepeatedField<plugin::Alert> {
+        let mut repeated_alerts = RepeatedField::default();
+        for alert in alerts {
+            repeated_alerts.push(alert.into());
+        }
+        repeated_alerts
     }
 }

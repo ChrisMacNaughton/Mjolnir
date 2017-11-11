@@ -83,3 +83,29 @@ impl From<Remediation> for RemediationRequest {
         a
     }
 }
+
+impl<'a> From<&'a Remediation> for RemediationRequest {
+    fn from(remediation: &Remediation) -> RemediationRequest {
+        let mut a = RemediationRequest::default();
+        a.set_plugin(remediation.plugin.clone());
+        if let Some(ref target) = remediation.target {
+            a.set_target(target.clone());
+        }
+        let mut repeated_args = RepeatedField::default();
+        for arg in remediation.args.clone() {
+            repeated_args.push(arg.into());
+        }
+        a.set_args(repeated_args);
+        a
+    }
+}
+
+impl Remediation {
+    pub fn vec_to_repeated(remediations: &Vec<Remediation>) -> RepeatedField<RemediationRequest> {
+        let mut repeated_remediations = RepeatedField::default();
+        for remediation in remediations {
+            repeated_remediations.push(remediation.into());
+        }
+        repeated_remediations
+    }
+}

@@ -664,8 +664,8 @@ impl ::protobuf::reflect::ProtobufValue for RemediationResult_ResultType {
 #[derive(PartialEq,Clone,Default)]
 pub struct Alert {
     // message fields
-    title: ::protobuf::SingularField<::std::string::String>,
-    dynamic_name: ::protobuf::SingularField<::std::string::String>,
+    alert_type: ::protobuf::SingularField<::std::string::String>,
+    name: ::protobuf::SingularField<::std::string::String>,
     source: ::protobuf::SingularField<::std::string::String>,
     // special fields
     unknown_fields: ::protobuf::UnknownFields,
@@ -690,92 +690,92 @@ impl Alert {
         }
     }
 
-    // required string title = 1;
+    // required string alert_type = 1;
 
-    pub fn clear_title(&mut self) {
-        self.title.clear();
+    pub fn clear_alert_type(&mut self) {
+        self.alert_type.clear();
     }
 
-    pub fn has_title(&self) -> bool {
-        self.title.is_some()
+    pub fn has_alert_type(&self) -> bool {
+        self.alert_type.is_some()
     }
 
     // Param is passed by value, moved
-    pub fn set_title(&mut self, v: ::std::string::String) {
-        self.title = ::protobuf::SingularField::some(v);
+    pub fn set_alert_type(&mut self, v: ::std::string::String) {
+        self.alert_type = ::protobuf::SingularField::some(v);
     }
 
     // Mutable pointer to the field.
     // If field is not initialized, it is initialized with default value first.
-    pub fn mut_title(&mut self) -> &mut ::std::string::String {
-        if self.title.is_none() {
-            self.title.set_default();
+    pub fn mut_alert_type(&mut self) -> &mut ::std::string::String {
+        if self.alert_type.is_none() {
+            self.alert_type.set_default();
         }
-        self.title.as_mut().unwrap()
+        self.alert_type.as_mut().unwrap()
     }
 
     // Take field
-    pub fn take_title(&mut self) -> ::std::string::String {
-        self.title.take().unwrap_or_else(|| ::std::string::String::new())
+    pub fn take_alert_type(&mut self) -> ::std::string::String {
+        self.alert_type.take().unwrap_or_else(|| ::std::string::String::new())
     }
 
-    pub fn get_title(&self) -> &str {
-        match self.title.as_ref() {
+    pub fn get_alert_type(&self) -> &str {
+        match self.alert_type.as_ref() {
             Some(v) => &v,
             None => "",
         }
     }
 
-    fn get_title_for_reflect(&self) -> &::protobuf::SingularField<::std::string::String> {
-        &self.title
+    fn get_alert_type_for_reflect(&self) -> &::protobuf::SingularField<::std::string::String> {
+        &self.alert_type
     }
 
-    fn mut_title_for_reflect(&mut self) -> &mut ::protobuf::SingularField<::std::string::String> {
-        &mut self.title
+    fn mut_alert_type_for_reflect(&mut self) -> &mut ::protobuf::SingularField<::std::string::String> {
+        &mut self.alert_type
     }
 
-    // optional string dynamic_name = 2;
+    // optional string name = 2;
 
-    pub fn clear_dynamic_name(&mut self) {
-        self.dynamic_name.clear();
+    pub fn clear_name(&mut self) {
+        self.name.clear();
     }
 
-    pub fn has_dynamic_name(&self) -> bool {
-        self.dynamic_name.is_some()
+    pub fn has_name(&self) -> bool {
+        self.name.is_some()
     }
 
     // Param is passed by value, moved
-    pub fn set_dynamic_name(&mut self, v: ::std::string::String) {
-        self.dynamic_name = ::protobuf::SingularField::some(v);
+    pub fn set_name(&mut self, v: ::std::string::String) {
+        self.name = ::protobuf::SingularField::some(v);
     }
 
     // Mutable pointer to the field.
     // If field is not initialized, it is initialized with default value first.
-    pub fn mut_dynamic_name(&mut self) -> &mut ::std::string::String {
-        if self.dynamic_name.is_none() {
-            self.dynamic_name.set_default();
+    pub fn mut_name(&mut self) -> &mut ::std::string::String {
+        if self.name.is_none() {
+            self.name.set_default();
         }
-        self.dynamic_name.as_mut().unwrap()
+        self.name.as_mut().unwrap()
     }
 
     // Take field
-    pub fn take_dynamic_name(&mut self) -> ::std::string::String {
-        self.dynamic_name.take().unwrap_or_else(|| ::std::string::String::new())
+    pub fn take_name(&mut self) -> ::std::string::String {
+        self.name.take().unwrap_or_else(|| ::std::string::String::new())
     }
 
-    pub fn get_dynamic_name(&self) -> &str {
-        match self.dynamic_name.as_ref() {
+    pub fn get_name(&self) -> &str {
+        match self.name.as_ref() {
             Some(v) => &v,
             None => "",
         }
     }
 
-    fn get_dynamic_name_for_reflect(&self) -> &::protobuf::SingularField<::std::string::String> {
-        &self.dynamic_name
+    fn get_name_for_reflect(&self) -> &::protobuf::SingularField<::std::string::String> {
+        &self.name
     }
 
-    fn mut_dynamic_name_for_reflect(&mut self) -> &mut ::protobuf::SingularField<::std::string::String> {
-        &mut self.dynamic_name
+    fn mut_name_for_reflect(&mut self) -> &mut ::protobuf::SingularField<::std::string::String> {
+        &mut self.name
     }
 
     // optional string source = 3;
@@ -825,7 +825,7 @@ impl Alert {
 
 impl ::protobuf::Message for Alert {
     fn is_initialized(&self) -> bool {
-        if self.title.is_none() {
+        if self.alert_type.is_none() {
             return false;
         }
         true
@@ -836,10 +836,10 @@ impl ::protobuf::Message for Alert {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 1 => {
-                    ::protobuf::rt::read_singular_string_into(wire_type, is, &mut self.title)?;
+                    ::protobuf::rt::read_singular_string_into(wire_type, is, &mut self.alert_type)?;
                 },
                 2 => {
-                    ::protobuf::rt::read_singular_string_into(wire_type, is, &mut self.dynamic_name)?;
+                    ::protobuf::rt::read_singular_string_into(wire_type, is, &mut self.name)?;
                 },
                 3 => {
                     ::protobuf::rt::read_singular_string_into(wire_type, is, &mut self.source)?;
@@ -856,10 +856,10 @@ impl ::protobuf::Message for Alert {
     #[allow(unused_variables)]
     fn compute_size(&self) -> u32 {
         let mut my_size = 0;
-        if let Some(ref v) = self.title.as_ref() {
+        if let Some(ref v) = self.alert_type.as_ref() {
             my_size += ::protobuf::rt::string_size(1, &v);
         }
-        if let Some(ref v) = self.dynamic_name.as_ref() {
+        if let Some(ref v) = self.name.as_ref() {
             my_size += ::protobuf::rt::string_size(2, &v);
         }
         if let Some(ref v) = self.source.as_ref() {
@@ -871,10 +871,10 @@ impl ::protobuf::Message for Alert {
     }
 
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream) -> ::protobuf::ProtobufResult<()> {
-        if let Some(ref v) = self.title.as_ref() {
+        if let Some(ref v) = self.alert_type.as_ref() {
             os.write_string(1, &v)?;
         }
-        if let Some(ref v) = self.dynamic_name.as_ref() {
+        if let Some(ref v) = self.name.as_ref() {
             os.write_string(2, &v)?;
         }
         if let Some(ref v) = self.source.as_ref() {
@@ -925,14 +925,14 @@ impl ::protobuf::MessageStatic for Alert {
             descriptor.get(|| {
                 let mut fields = ::std::vec::Vec::new();
                 fields.push(::protobuf::reflect::accessor::make_singular_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
-                    "title",
-                    Alert::get_title_for_reflect,
-                    Alert::mut_title_for_reflect,
+                    "alert_type",
+                    Alert::get_alert_type_for_reflect,
+                    Alert::mut_alert_type_for_reflect,
                 ));
                 fields.push(::protobuf::reflect::accessor::make_singular_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
-                    "dynamic_name",
-                    Alert::get_dynamic_name_for_reflect,
-                    Alert::mut_dynamic_name_for_reflect,
+                    "name",
+                    Alert::get_name_for_reflect,
+                    Alert::mut_name_for_reflect,
                 ));
                 fields.push(::protobuf::reflect::accessor::make_singular_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
                     "source",
@@ -951,8 +951,8 @@ impl ::protobuf::MessageStatic for Alert {
 
 impl ::protobuf::Clear for Alert {
     fn clear(&mut self) {
-        self.clear_title();
-        self.clear_dynamic_name();
+        self.clear_alert_type();
+        self.clear_name();
         self.clear_source();
         self.unknown_fields.clear();
     }
@@ -1451,15 +1451,15 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     %.Mjolnir.RemediationResult.ResultTypeR\x06result\x12\x1b\n\terror_msg\
     \x18\x02\x20\x01(\tR\x08errorMsg\x12&\n\x06alerts\x18\x03\x20\x03(\x0b2\
     \x0e.Mjolnir.AlertR\x06alerts\"\x1d\n\nResultType\x12\x06\n\x02OK\x10\0\
-    \x12\x07\n\x03ERR\x10\x01\"X\n\x05Alert\x12\x14\n\x05title\x18\x01\x20\
-    \x02(\tR\x05title\x12!\n\x0cdynamic_name\x18\x02\x20\x01(\tR\x0bdynamicN\
-    ame\x12\x16\n\x06source\x18\x03\x20\x01(\tR\x06source\"\xc9\x01\n\x08Dis\
-    cover\x12\x12\n\x04name\x18\x01\x20\x02(\tR\x04name\x12\x16\n\x06author\
-    \x18\x02\x20\x01(\tR\x06author\x12\x18\n\x07version\x18\x03\x20\x01(\tR\
-    \x07version\x12&\n\x06alerts\x18\x04\x20\x03(\x0b2\x0e.Mjolnir.AlertR\
-    \x06alerts\x12\x18\n\x07webhook\x18\x05\x20\x02(\x08R\x07webhook\x125\n\
-    \x07actions\x18\x06\x20\x03(\x0b2\x1b.Mjolnir.RemediationRequestR\x07act\
-    ionsB\x02H\x01\
+    \x12\x07\n\x03ERR\x10\x01\"R\n\x05Alert\x12\x1d\n\nalert_type\x18\x01\
+    \x20\x02(\tR\talertType\x12\x12\n\x04name\x18\x02\x20\x01(\tR\x04name\
+    \x12\x16\n\x06source\x18\x03\x20\x01(\tR\x06source\"\xc9\x01\n\x08Discov\
+    er\x12\x12\n\x04name\x18\x01\x20\x02(\tR\x04name\x12\x16\n\x06author\x18\
+    \x02\x20\x01(\tR\x06author\x12\x18\n\x07version\x18\x03\x20\x01(\tR\x07v\
+    ersion\x12&\n\x06alerts\x18\x04\x20\x03(\x0b2\x0e.Mjolnir.AlertR\x06aler\
+    ts\x12\x18\n\x07webhook\x18\x05\x20\x02(\x08R\x07webhook\x125\n\x07actio\
+    ns\x18\x06\x20\x03(\x0b2\x1b.Mjolnir.RemediationRequestR\x07actionsB\x02\
+    H\x01\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {

@@ -45,7 +45,7 @@ mod tests {
             vec![
                 Pipeline {
                     trigger: Alert {
-                        title: "alertmanager".into(),
+                        alert_type: "alertmanager".into(),
                         name: Some("disk-full".into()),
                         source: None
                     },
@@ -56,7 +56,7 @@ mod tests {
                     }
                 }, Pipeline {
                     trigger: Alert {
-                        title: "test".into(),
+                        alert_type: "test".into(),
                         name: None,
                         source: None
                     }, action: Remediation {
@@ -103,7 +103,7 @@ fn load_pipeline_from_yaml(yaml: &str) -> Vec<Pipeline> {
                             // println!("pipeline: {:?}", pipeline);
                             let alert_yaml = &pipeline["alert"];
                             let alert = Alert {
-                                title: alert_yaml["type"].as_str().expect("Couldn't parse the yaml into a pipeline").into(),
+                                alert_type: alert_yaml["type"].as_str().expect("Couldn't parse the yaml into a pipeline").into(),
                                 name: alert_yaml["name"].as_str().map(|a| Some(a.into())).unwrap_or(None),
                                 source: None,
                             };

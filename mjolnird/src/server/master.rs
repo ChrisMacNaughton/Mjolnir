@@ -21,7 +21,7 @@ use zmq::{Message, Result as ZmqResult};
 use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
-use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register};
+use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult};
 use server::{zmq_listen, connect, server_pubkey, load_pipeline};
 use config::Config;
 
@@ -134,7 +134,7 @@ fn hello(
 }
 
 fn process_webhook(hook: PluginEntry, body: String) -> String {
-    println!("Hook is: {:?}", hook);
+    // println!("Hook is: {:?}", hook);
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
@@ -164,12 +164,10 @@ impl Master {
     }
 
     fn handle_webhook(&self, data: String) {
-        println!("result is {}", data);
-        self.sender.send(MasterAction::Alert(Alert {
-            title: "alertmanager".into(),
-            name: None,
-            source: None,
-        }));
+        let result = RemediationResult::from_string(&data);
+        for alert in result.alerts {
+            let _ = self.sender.send(MasterAction::Alert(alert));
+        }
     }
 
     fn webhook(

@@ -86,7 +86,7 @@ fn get_args() -> HashMap<String, String> {
             .unwrap();
         process::exit(0);
     } else {
-        println!("Hello, world!");
+        // println!("Hello, world!");
         let mut arg_list: HashMap<String, String> = HashMap::new();
         let _ = args.next();
         for arg in args {
