@@ -58,7 +58,7 @@ mod tests {
             "master",
         ]);
         let config = Config::from_args(args);
-        let (mut master, _receiver) = Master::new();
+        let (mut master, _receiver) = Master::new(config.clone());
         master = master.with_plugin_path(config.plugin_path.clone());
         master.plugins.push(PluginEntry {
             name: "clean_disk".into(),
