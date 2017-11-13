@@ -38,6 +38,18 @@ mod tests {
         let remediation2 = r2.into();
         assert_eq!(remediation, remediation2);
     }
+
+    #[test]
+    fn it_can_convert_from_vec() {
+        let r = vec![Remediation {
+            plugin: "Test".into(),
+            target: None,
+            args: vec!["body".into()],
+        }];
+
+        let repeated = Remediation::vec_to_repeated(&r);
+        assert_eq!(r[0], repeated.first().unwrap().into());
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

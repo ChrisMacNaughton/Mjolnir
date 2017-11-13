@@ -37,6 +37,18 @@ mod tests {
         let alert2 = parse_from_bytes::<plugin::Alert>(&bytes).unwrap().into();
         assert_eq!(alert, alert2);
     }
+
+    #[test]
+    fn it_can_convert_from_vec() {
+        let r = vec![Alert {
+            alert_type: "Test".into(),
+            name: None,
+            source: None,
+        }];
+
+        let repeated = Alert::vec_to_repeated(&r);
+        assert_eq!(r[0], repeated.first().unwrap().into());
+    }
 }
 
 #[derive(Clone, Debug, Eq)]
