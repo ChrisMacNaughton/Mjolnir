@@ -18,6 +18,17 @@ mod tests {
         let register2 = parse_from_bytes::<proto::agent::Register>(&bytes).unwrap().into();
         assert_eq!(register, register2);
     }
+
+    #[test]
+    fn it_serializes_and_deserializes_with_ipv6() {
+        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local");
+
+        let request: proto::agent::Register = register.clone().into();
+
+        let bytes = request.write_to_bytes().unwrap();
+        let register2 = parse_from_bytes::<proto::agent::Register>(&bytes).unwrap().into();
+        assert_eq!(register, register2);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
