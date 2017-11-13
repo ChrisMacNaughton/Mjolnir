@@ -70,17 +70,7 @@ impl From<RemediationRequest> for Remediation {
 
 impl From<Remediation> for RemediationRequest {
     fn from(remediation: Remediation) -> RemediationRequest {
-        let mut a = RemediationRequest::default();
-        a.set_plugin(remediation.plugin);
-        if let Some(target) = remediation.target {
-            a.set_target(target);
-        }
-        let mut repeated_args = RepeatedField::default();
-        for arg in remediation.args {
-            repeated_args.push(arg.into());
-        }
-        a.set_args(repeated_args);
-        a
+        (&remediation).into()
     }
 }
 

@@ -96,15 +96,7 @@ impl<'a> From<&'a Alert> for plugin::Alert {
 
 impl From<Alert> for plugin::Alert {
     fn from(alert: Alert) -> plugin::Alert {
-        let mut a = plugin::Alert::default();
-        a.set_alert_type(alert.alert_type);
-        if let Some(name) = alert.name {
-            a.set_name(name);
-        }
-        if let Some(source) = alert.source {
-            a.set_source(source);
-        }
-        a
+        (&alert).into()
     }
 }
 
