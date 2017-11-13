@@ -14,7 +14,7 @@ use hostname::get_hostname;
 
 // use tokio_core::reactor::Core;
 
-use mjolnir_api::{Operation, OperationType as OpType, Register, parse_from_bytes};
+use mjolnir_api::{Operation, OperationType as OpType, Register, parse_from_bytes, Remediation, RemediationResult};
 
 use protobuf::Message as ProtobufMsg;
 
@@ -72,9 +72,10 @@ impl Agent {
     }
 
     fn listen(&self) -> ZmqResult<()> {
+        let config = self.config.clone();
         zmq_listen(
             &self.config,
-            Box::new(|operation, responder| {
+            Box::new(move|operation, responder| {
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
@@ -85,8 +86,29 @@ impl Agent {
                         let msg = Message::from_slice(&encoded)?;
                         responder.send_msg(msg, 0)?;
                     }
+                    OpType::REMEDIATE => {
+                        let mut o = Operation::new();
+                        println!("Creating ack for {:?}", operation.get_operation_type());
+                        o.set_operation_type(OpType::ACK);
+
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
+
+                        let remediation: Remediation = operation.get_remediate().into();
+                        println!("About to try to remediate {:?}", remediation);
+                        let res = remediate(remediation, &config);
+                    }
                     _ => {
                         println!("Not quite handling {:?} yet", operation);
+
+                        let mut o = Operation::new();
+                        println!("Creating ack for {:?}", operation.get_operation_type());
+                        o.set_operation_type(OpType::ACK);
+
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
                     }
                 }
                 Ok(())
@@ -147,4 +169,10 @@ impl Agent {
         }
         Ok(())
     }
+}
+
+
+fn remediate(remediation: Remediation, config: &Config) -> RemediationResult {
+    let res = RemediationResult::new();
+    res
 }

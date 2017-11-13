@@ -1,7 +1,8 @@
 use std::time::{Instant, Duration};
-use std::fs::read_dir;
+use std::fs::{File, read_dir};
+use std::io::{self, Read};
 use std::net::IpAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Sender, Receiver, channel};
@@ -15,13 +16,14 @@ use hyper;
 use hyper::server::{Http, Request, Response, Service};
 
 use hyper::{Body, Chunk, Method, StatusCode};
+use hyper::header::ContentLength;
 
 use zmq::{Message, Result as ZmqResult};
 
 use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
-use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult};
+use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult, Remediation};
 use server::{zmq_listen, connect, server_pubkey, load_pipeline};
 use config::Config;
 
@@ -87,6 +89,35 @@ impl PartialEq for Agent {
     }
 }
 
+// #[derive(Clone, Debug, Eq, PartialEq)]
+// pub struct Remediation {
+//     pub plugin: String,
+//     pub target: Option<String>,
+//     pub args: Vec<String>,
+// }
+impl Agent {
+    pub fn remediate(&self, alert: Alert, remediation: &Remediation, config: &Config) {
+        let server_pubkey = server_pubkey(&config);
+         match connect(&self.ip.to_string(), self.port, &server_pubkey){
+            Ok(socket) => {
+                let mut o = Operation::new();
+                // println!("Creating PING");
+                o.set_operation_type(OpType::REMEDIATE);
+                let mut remediation = remediation.clone();
+                remediation.target = alert.source;
+                o.set_remediate(remediation.into());
+                let encoded = o.write_to_bytes().unwrap();
+                let msg = Message::from_slice(&encoded).unwrap();
+                match socket.send_msg(msg, 0) {
+                    Ok(_s) => {},
+                    Err(e) => println!("Problem sending remediation request: {:?}", e)
+                }
+            }
+            Err(e) => println!("problem connecting to socket: {:?}", e),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Master {
     agents: Arc<Mutex<Vec<Agent>>>,
@@ -94,6 +125,7 @@ pub struct Master {
     plugin_path: Option<PathBuf>,
     pipelines: Vec<Pipeline>,
     sender: Sender<MasterAction>,
+    config: Config,
 }
 
 enum MasterAction {
@@ -116,28 +148,12 @@ impl Service for Master {
     }
 }
 
-fn hello(
-    req: Request,
-) -> Box<
-    Future<
-        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
-        Error = hyper::Error,
-    >,
-> {
-    let phrase = "Hello, from Master";
-    let mut response = Response::new();
-    println!("Received request: {} {}", req.method(), req.path());
-    let body: Box<Stream<Item = _, Error = _>> = Box::new(Body::from(phrase));
-    response.set_body(body);
-    // response.set_body(phrase);
-    Box::new(futures::future::ok(response))
-}
-
 fn process_webhook(hook: PluginEntry, body: String) -> String {
     // println!("Hook is: {:?}", hook);
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
+    println!("About to run command: {:?}", cmd);
     if let Ok(output) = cmd.output() {
         match String::from_utf8(output.stdout) {
             Ok(s) => s,
@@ -149,7 +165,7 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
 }
 
 impl Master {
-    fn new() -> (Master, Receiver<MasterAction>) {
+    fn new(config: Config) -> (Master, Receiver<MasterAction>) {
         let (sender, receiver) = channel();
         (
             Master {
@@ -158,6 +174,7 @@ impl Master {
                 plugin_path: None,
                 pipelines: vec![],
                 sender: sender,
+                config: config
             },
             receiver
         )
@@ -213,7 +230,7 @@ impl Master {
     }
 
     pub fn bind(config: Config) -> ZmqResult<()> {
-        let (mut master, receiver) = Master::new();
+        let (mut master, receiver) = Master::new(config.clone());
         master = master.with_plugin_path(config.plugin_path.clone())
             .load_plugins()
             .load_pipelines(&config);
@@ -246,7 +263,7 @@ impl Master {
                                 let msg = Message::from_slice(&encoded).unwrap();
                                 match socket.send_msg(msg, 0) {
                                     Ok(_s) => {},
-                                    Err(e) => println!("Problem snding ping: {:?}", e)
+                                    Err(e) => println!("Problem sending ping: {:?}", e)
                                 }
                             }
                             Err(e) => println!("problem connecting to socket: {:?}", e),
@@ -260,13 +277,14 @@ impl Master {
             }
         });
         let bg_master = master.clone();
+        let background_config = config.clone();
         thread::spawn(move|| {
             loop {
                 match receiver.try_recv() {
                     Ok(s) => {
                         match s {
                             MasterAction::Webhook(s) => bg_master.handle_webhook(s),
-                            MasterAction::Alert(alert) => bg_master.remediate(alert)
+                            MasterAction::Alert(alert) => bg_master.remediate(alert, &background_config)
                         }
                     },
                     Err(_e) => {},
@@ -279,8 +297,20 @@ impl Master {
         Ok(())
     }
 
-    fn remediate(&self, alert: Alert) {
-        println!("Remediating {:?}", alert);
+    fn remediate(&self, alert: Alert, config: &Config) {
+        if let Some(pipeline) = self.pipelines.iter().find(|p| p.trigger == alert) {
+            println!("Remediating {:?}", alert);
+            if let Some(source) = alert.source.clone() {
+                if let Ok(agents) = self.agents.try_lock() {
+                    if let Some(agent) = agents.iter().find(|a| a.hostname == source || a.ip.to_string() == source).clone() {
+                        println!("Have an agent: {:?}", agent);
+                        agent.remediate(alert, &pipeline.action, config);
+                    }
+                }
+            }
+        } else {
+            println!("Ignoring {:?}, no configured pipeline", alert);
+        }
     }
 
     fn setup_zmq(&self, config: &Config) -> ZmqResult<()> {
@@ -312,7 +342,7 @@ impl Master {
                         let register: Register = operation.get_register().clone().into();
                         let agent = Agent {
                             ip: register.ip,
-                            hostname: register.hostname,
+                            hostname: register.hostname.clone(),
                             port: register.port,
                             last_seen: Instant::now(),
                         };
@@ -325,6 +355,7 @@ impl Master {
                             }
                         }
                         if !updated {
+                            println!("Adding a new agent: {:?}!", agent);
                             agents.push(agent);
                         }
 
@@ -344,6 +375,14 @@ impl Master {
                     }
                     _ => {
                         println!("Not quite handling {:?} yet", operation);
+
+                        let mut o = Operation::new();
+                        println!("Creating ack for {:?}", operation.get_operation_type());
+                        o.set_operation_type(OpType::ACK);
+
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded)?;
+                        responder.send_msg(msg, 0)?;
                     }
                 }
                 Ok(())
@@ -361,20 +400,36 @@ impl Master {
         >,
     > {
         match (req.method(), req.path()) {
+            (&Method::Get, _) => {
+                let path = req.path().to_string();
+                let mut parts = path.split("/").clone();
+                let _ = parts.next();
+                match (parts.next(), parts.next()) {
+                    (Some("plugin"), Some(name)) => {
+                        if let Some(local_path) = local_path_for_request(&format!("/{}", name), &self.config.plugin_path) {
+                            read_file(&local_path)
+                        } else {
+                            not_found(&req)
+                        }
+                    },
+                    (_first, _second) => {
+                        not_found(&req)
+                    },
+                }
+            }
             (&Method::Post, _) => {
                 let path = req.path().to_string();
                 let mut parts = path.split("/").clone();
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
                     (Some("webhook"), Some(name)) => self.webhook(name, req),
-                    (_first, _second) => hello(req),
+                    (_first, _second) => {
+                        not_found(&req)
+                    },
                 }
             }
             _ => {
-                let mut response = Response::new();
-                println!("Received request: {} {}", req.method(), req.path());
-                response.set_status(StatusCode::NotFound);
-                Box::new(futures::future::ok(response))
+                not_found(&req)
             }
         }
     }
@@ -433,4 +488,84 @@ impl Master {
         }
         Ok(())
     }
+}
+
+fn local_path_for_request(request_path: &str, root_dir: &Path) -> Option<PathBuf> {
+    // This is equivalent to checking for hyper::RequestUri::AbsoluteUri
+    if !request_path.starts_with("/") {
+        return None;
+    }
+    // Trim off the url parameters starting with '?'
+    let end = request_path.find('?').unwrap_or(request_path.len());
+    let request_path = &request_path[0..end];
+
+    // Append the requested path to the root directory
+    let mut path = root_dir.to_owned();
+    if request_path.starts_with('/') {
+        path.push(&request_path[1..]);
+    } else {
+        return None;
+    }
+
+    // Maybe turn directory requests into index.html requests
+    if request_path.ends_with('/') {
+        path.push("index.html");
+    }
+
+    Some(path)
+}
+
+fn read_file(path: &Path) -> Box<
+    Future<
+        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+        Error = hyper::Error,
+    >> {
+    match File::open(&path) {
+        Ok(mut file) => {
+            let mut buf = Vec::new();
+            match file.read_to_end(&mut buf) {
+                Ok(_) => {
+                    let len = buf.len();
+                    let body: Box<Stream<Item = _, Error = _>> = Box::new(Body::from(buf));
+                    // response.set_body(body);
+                    let response = Response::new()
+                        .with_status(StatusCode::Ok)
+                        .with_header(ContentLength(len as u64))
+                        .with_body(body);
+                    Box::new(futures::future::ok(response))
+                }
+                Err(_) => internal_server_error(),
+            }
+        }
+        Err(e) => {
+            match e.kind() {
+                io::ErrorKind::NotFound => {
+                    Box::new(futures::future::ok(Response::new()
+                        .with_status(StatusCode::NotFound)))
+                },
+                _ => internal_server_error(),
+            }
+        }
+    }
+}
+
+fn internal_server_error() -> Box<
+    Future<
+        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+        Error = hyper::Error,
+    >> {
+    Box::new(futures::future::ok(Response::new()
+        .with_status(StatusCode::InternalServerError)
+        .with_header(ContentLength(0))))
+}
+
+fn not_found(req: &Request) -> Box<
+    Future<
+        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+        Error = hyper::Error,
+    >> {
+        println!("Received request: {} {}", req.method(), req.path());;
+        Box::new(futures::future::ok(Response::new()
+            .with_status(StatusCode::NotFound)
+            .with_header(ContentLength(0))))
 }

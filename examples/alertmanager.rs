@@ -40,12 +40,21 @@ fn generate_actions(_actions: &mut Vec<Remediation>) {
 // Your plugins should be functions wth this signature
 
 fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
+    let source = if let Some(body) = args.get("body") {
+        if body.len() > 0 {
+            Some(body.clone())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let mut result = RemediationResult::new()
         .err("Test")
         .with_alert(Alert {
             alert_type: "alertmanager".into(),
             name: Some("disk-full".into()),
-            source: None,
+            source: source,
         });
     result
 }
