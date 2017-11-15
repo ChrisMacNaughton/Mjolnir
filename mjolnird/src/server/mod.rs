@@ -28,16 +28,17 @@ mod tests {
     - alert:
         type: alertmanager
         name: disk-full
-      action:
-        type: clean_disk
-        # Optional: 
-        # args: [] 
+      actions:
+        -
+            type: clean_disk
+            # Optional: 
+            # args: [] 
     - alert:
         type: test
-      action:
-        type: something_else
-        args:
-        - name=test
+      actions:
+        - type: something_else
+          args:
+          - name=test
         "#;
         let pipelines = load_pipeline_from_yaml(yaml);
         println!("Pipelines: {:?}", pipelines);
@@ -49,25 +50,31 @@ mod tests {
                         name: Some("disk-full".into()),
                         source: None,
                         args: vec![],
+                        next_remediation: 0,
                     },
-                    action: Remediation {
-                        plugin: "clean_disk".into(),
-                        target: None,
-                        args: vec![],
-                        alert: None,
-                    }
+                    actions: vec![
+                        Remediation {
+                            plugin: "clean_disk".into(),
+                            target: None,
+                            args: vec![],
+                            alert: None,
+                        },
+                    ],
                 }, Pipeline {
                     trigger: Alert {
                         alert_type: "test".into(),
                         name: None,
                         source: None,
                         args: vec!["name=test".into()],
-                    }, action: Remediation {
-                        plugin: "something_else".into(),
-                        target: None,
-                        args: vec!["name=test".into()],
-                        alert: None,
-                    }
+                        next_remediation: 0,
+                    }, actions: vec![
+                        Remediation {
+                            plugin: "something_else".into(),
+                            target: None,
+                            args: vec!["name=test".into()],
+                            alert: None,
+                        },
+                    ],
                 }
             ],
             pipelines
@@ -113,29 +120,36 @@ fn load_pipeline_from_yaml(yaml: &str) -> Vec<Pipeline> {
                                 name: alert_yaml["name"].as_str().map(|a| Some(a.into())).unwrap_or(None),
                                 source: None,
                                 args: vec![],
+                                next_remediation: 0,
                             };
-                            let remediation_yaml = &pipeline["action"];
-                            let args = match remediation_yaml["args"] {
-                                Array(ref args) => {
-                                    args
-                                        .iter()
-                                        .map(|a| a.as_str())
-                                        .filter(|a| a.is_some())
-                                        .map(|a| a.unwrap().into())
-                                        .collect()
-                                },
+                            let actions: Vec<Remediation> = match pipeline["actions"] {
+                                Array(ref actions) => {
+                                    actions.iter().map(|action| {
+                                        let args = match action["args"] {
+                                            Array(ref args) => {
+                                                args
+                                                    .iter()
+                                                    .map(|a| a.as_str())
+                                                    .filter(|a| a.is_some())
+                                                    .map(|a| a.unwrap().into())
+                                                    .collect()
+                                            },
+                                            _ => vec![]
+                                        };
+                                        Remediation {
+                                            plugin: action["type"].as_str().unwrap().into(),
+                                            target: None,
+                                            args: args,
+                                            alert: None,
+                                        }
+                                    }).collect()
+                                }
                                 _ => vec![]
-                            };
-                            let remediation = Remediation {
-                                plugin: remediation_yaml["type"].as_str().unwrap().into(),
-                                target: None,
-                                args: args,
-                                alert: None,
                             };
                             v.push(
                                 Pipeline {
                                     trigger: alert,
-                                    action: remediation,
+                                    actions: actions,
                                 }
                             )
                         }

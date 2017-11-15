@@ -15,6 +15,7 @@ mod tests {
             name: Some("placeholder".into()),
             source: Some("test".into()),
             args: vec!["testarg=value".into()],
+            next_remediation: 0,
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -31,6 +32,7 @@ mod tests {
             name: None,
             source: None,
             args: vec![],
+            next_remediation: 0,
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -47,6 +49,7 @@ mod tests {
             name: None,
             source: None,
             args: vec![],
+            next_remediation: 0,
         }];
 
         let repeated = Alert::vec_to_repeated(&r);
@@ -61,6 +64,8 @@ pub struct Alert {
     pub name: Option<String>,
     pub source: Option<String>,
     pub args: Vec<String>,
+    /// Master managed index into pipeline
+    pub next_remediation: u64,
 }
 
 impl PartialEq for Alert {
@@ -84,7 +89,8 @@ impl<'a> From<&'a plugin::Alert> for Alert {
             } else {
                 None
             },
-            args: alert.get_args().into()
+            args: alert.get_args().into(),
+            next_remediation: alert.get_next_remediation(),
         }
     }
 }
@@ -110,7 +116,7 @@ impl<'a> From<&'a Alert> for plugin::Alert {
             repeated_args.push(arg.into());
         }
         a.set_args(repeated_args);
-
+        a.set_next_remediation(alert.next_remediation);
         // d.set_alerts()
         a
     }
@@ -139,5 +145,10 @@ impl Alert {
             repeated_alerts.push(alert.into());
         }
         repeated_alerts
+    }
+
+    pub fn increment(mut self) -> Self {
+        self.next_remediation += 1;
+        self
     }
 }

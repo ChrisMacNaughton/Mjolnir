@@ -15,19 +15,33 @@ pub use proto::mjolnir::{Operation, OperationType};
 
 pub use proto::plugin;
 
+mod discover;
 mod register;
 mod alert;
 mod plugin_entry;
 mod remediation;
 mod remediation_result;
 
+pub use discover::Discover;
 pub use register::Register;
 pub use alert::Alert;
 pub use plugin_entry::PluginEntry;
 pub use remediation::Remediation;
 pub use remediation_result::RemediationResult;
 
-// pub use proto::agent::Register;
+#[macro_export]
+macro_rules! plugin_list {
+    ( $( $name:expr => $call:ident ),* ) => {
+        {
+            let mut plugins: HashMap<String, _> = HashMap::new();
+            $(
+                plugins.insert($name.into(), $call as fn(HashMap<String, String>) -> RemediationResult);
+            )*
+            plugins
+        }
+    };
+}
+
 
 impl proto::plugin::Discover {
     pub fn try_from(input: &[u8]) -> Result<proto::plugin::Discover, protobuf::ProtobufError> {

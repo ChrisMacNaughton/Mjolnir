@@ -733,6 +733,7 @@ pub struct Alert {
     name: ::protobuf::SingularField<::std::string::String>,
     source: ::protobuf::SingularField<::std::string::String>,
     args: ::protobuf::RepeatedField<::std::string::String>,
+    next_remediation: ::std::option::Option<u64>,
     // special fields
     unknown_fields: ::protobuf::UnknownFields,
     cached_size: ::protobuf::CachedSize,
@@ -920,6 +921,33 @@ impl Alert {
     fn mut_args_for_reflect(&mut self) -> &mut ::protobuf::RepeatedField<::std::string::String> {
         &mut self.args
     }
+
+    // optional uint64 next_remediation = 5;
+
+    pub fn clear_next_remediation(&mut self) {
+        self.next_remediation = ::std::option::Option::None;
+    }
+
+    pub fn has_next_remediation(&self) -> bool {
+        self.next_remediation.is_some()
+    }
+
+    // Param is passed by value, moved
+    pub fn set_next_remediation(&mut self, v: u64) {
+        self.next_remediation = ::std::option::Option::Some(v);
+    }
+
+    pub fn get_next_remediation(&self) -> u64 {
+        self.next_remediation.unwrap_or(0)
+    }
+
+    fn get_next_remediation_for_reflect(&self) -> &::std::option::Option<u64> {
+        &self.next_remediation
+    }
+
+    fn mut_next_remediation_for_reflect(&mut self) -> &mut ::std::option::Option<u64> {
+        &mut self.next_remediation
+    }
 }
 
 impl ::protobuf::Message for Alert {
@@ -946,6 +974,13 @@ impl ::protobuf::Message for Alert {
                 4 => {
                     ::protobuf::rt::read_repeated_string_into(wire_type, is, &mut self.args)?;
                 },
+                5 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeVarint {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    let tmp = is.read_uint64()?;
+                    self.next_remediation = ::std::option::Option::Some(tmp);
+                },
                 _ => {
                     ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
                 },
@@ -970,6 +1005,9 @@ impl ::protobuf::Message for Alert {
         for value in &self.args {
             my_size += ::protobuf::rt::string_size(4, &value);
         };
+        if let Some(v) = self.next_remediation {
+            my_size += ::protobuf::rt::value_size(5, v, ::protobuf::wire_format::WireTypeVarint);
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
@@ -988,6 +1026,9 @@ impl ::protobuf::Message for Alert {
         for v in &self.args {
             os.write_string(4, &v)?;
         };
+        if let Some(v) = self.next_remediation {
+            os.write_uint64(5, v)?;
+        }
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -1052,6 +1093,11 @@ impl ::protobuf::MessageStatic for Alert {
                     Alert::get_args_for_reflect,
                     Alert::mut_args_for_reflect,
                 ));
+                fields.push(::protobuf::reflect::accessor::make_option_accessor::<_, ::protobuf::types::ProtobufTypeUint64>(
+                    "next_remediation",
+                    Alert::get_next_remediation_for_reflect,
+                    Alert::mut_next_remediation_for_reflect,
+                ));
                 ::protobuf::reflect::MessageDescriptor::new::<Alert>(
                     "Alert",
                     fields,
@@ -1068,6 +1114,7 @@ impl ::protobuf::Clear for Alert {
         self.clear_name();
         self.clear_source();
         self.clear_args();
+        self.clear_next_remediation();
         self.unknown_fields.clear();
     }
 }
@@ -1566,15 +1613,16 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     nir.RemediationResult.ResultTypeR\x06result\x12\x1b\n\terror_msg\x18\x02\
     \x20\x01(\tR\x08errorMsg\x12&\n\x06alerts\x18\x03\x20\x03(\x0b2\x0e.Mjol\
     nir.AlertR\x06alerts\"\x1d\n\nResultType\x12\x06\n\x02OK\x10\0\x12\x07\n\
-    \x03ERR\x10\x01\"f\n\x05Alert\x12\x1d\n\nalert_type\x18\x01\x20\x02(\tR\
-    \talertType\x12\x12\n\x04name\x18\x02\x20\x01(\tR\x04name\x12\x16\n\x06s\
-    ource\x18\x03\x20\x01(\tR\x06source\x12\x12\n\x04args\x18\x04\x20\x03(\t\
-    R\x04args\"\xc9\x01\n\x08Discover\x12\x12\n\x04name\x18\x01\x20\x02(\tR\
-    \x04name\x12\x16\n\x06author\x18\x02\x20\x01(\tR\x06author\x12\x18\n\x07\
-    version\x18\x03\x20\x01(\tR\x07version\x12&\n\x06alerts\x18\x04\x20\x03(\
-    \x0b2\x0e.Mjolnir.AlertR\x06alerts\x12\x18\n\x07webhook\x18\x05\x20\x02(\
-    \x08R\x07webhook\x125\n\x07actions\x18\x06\x20\x03(\x0b2\x1b.Mjolnir.Rem\
-    ediationRequestR\x07actionsB\x02H\x01\
+    \x03ERR\x10\x01\"\x91\x01\n\x05Alert\x12\x1d\n\nalert_type\x18\x01\x20\
+    \x02(\tR\talertType\x12\x12\n\x04name\x18\x02\x20\x01(\tR\x04name\x12\
+    \x16\n\x06source\x18\x03\x20\x01(\tR\x06source\x12\x12\n\x04args\x18\x04\
+    \x20\x03(\tR\x04args\x12)\n\x10next_remediation\x18\x05\x20\x01(\x04R\
+    \x0fnextRemediation\"\xc9\x01\n\x08Discover\x12\x12\n\x04name\x18\x01\
+    \x20\x02(\tR\x04name\x12\x16\n\x06author\x18\x02\x20\x01(\tR\x06author\
+    \x12\x18\n\x07version\x18\x03\x20\x01(\tR\x07version\x12&\n\x06alerts\
+    \x18\x04\x20\x03(\x0b2\x0e.Mjolnir.AlertR\x06alerts\x12\x18\n\x07webhook\
+    \x18\x05\x20\x02(\x08R\x07webhook\x125\n\x07actions\x18\x06\x20\x03(\x0b\
+    2\x1b.Mjolnir.RemediationRequestR\x07actionsB\x02H\x01\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {

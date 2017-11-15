@@ -114,7 +114,6 @@ impl Agent {
                         match connect(&masters[0].ip, masters[0].zmq_port, &server_pubkey){
                             Ok(socket) => {
                                 let mut o = Operation::new();
-                                // println!("Creating PING");
                                 o.set_operation_type(OpType::REMEDIATION_RESULT);
                                 o.set_result(res.into());
                                 let encoded = o.write_to_bytes().unwrap();
@@ -211,12 +210,12 @@ fn remediate(remediation: Remediation, config: &Config, masters: &Arc<Vec<Master
         let master = if let Some(master) = masters.first() {
             master
         } else {
-            return RemediationResult::new().err("Couldn't find the masters")
+            return RemediationResult::new().err("Couldn't find the masters").with_alert(remediation.alert.unwrap().increment())
         };
         if let Ok(mut resp) = reqwest::get(&format!("http://{}:{}/plugin/{}", master.ip, master.http_port, remediation.plugin)) {
             let status = resp.status();
             if !status.is_success() {
-                return RemediationResult::new().err(format!("couldn't download {} : {:?}", plugin_path.display(), status))
+                return RemediationResult::new().err(format!("couldn't download {} : {:?}", plugin_path.display(), status)).with_alert(remediation.alert.unwrap().increment())
             }
             match fs::OpenOptions::new()
                 .create(true)
@@ -225,13 +224,13 @@ fn remediate(remediation: Remediation, config: &Config, masters: &Arc<Vec<Master
                 .open(&plugin_path) {
                 Ok(mut f) => {
                     if let Err(e) = io::copy(&mut resp, &mut f) {
-                        return RemediationResult::new().err(format!("couldn't download {} : {:?}", plugin_path.display(), e))
+                        return RemediationResult::new().err(format!("couldn't download {} : {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
                     }
                 },
-                Err(e) => return RemediationResult::new().err(format!("couldn't create {} : {:?}", plugin_path.display(), e))
+                Err(e) => return RemediationResult::new().err(format!("couldn't create {} : {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
             };
         } else {
-            return RemediationResult::new().err(format!("Couldn't fetch the plugin from the master at {}:{}", master.ip,  master.http_port))
+            return RemediationResult::new().err(format!("Couldn't fetch the plugin from the master at {}:{}", master.ip,  master.http_port)).with_alert(remediation.alert.unwrap().increment())
         }
     }
     let plugin = match Command::new(&plugin_path).output() {
@@ -241,13 +240,17 @@ fn remediate(remediation: Remediation, config: &Config, masters: &Arc<Vec<Master
                 &plugin_path,
             ) {
                 Ok(plugin) => plugin,
-                Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e))
+                Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
             }
         }
-        Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e))
+        Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
     };
 
-    run_plugin(&plugin, &remediation)
+    let mut res = run_plugin(&plugin, &remediation);
+    if res.result.is_err() {
+        res = res.with_alert(remediation.alert.unwrap().increment());
+    }
+    res
 }
 
 fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationResult {
@@ -270,9 +273,9 @@ fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationRes
         Ok(output) => {
             match String::from_utf8(output.stdout) {
                 Ok(s) => RemediationResult::from_string(&s),
-                Err(e) => RemediationResult::new().err(format!("{:?}", e)),
+                Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment()),
             }
         }
-        Err(e) => RemediationResult::new().err(format!("{:?}", e))
+        Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment())
     }
 }

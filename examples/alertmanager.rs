@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate mjolnir_api;
 
 extern crate serde;
@@ -11,36 +12,45 @@ use std::env;
 use std::process;
 use std::io::{self, Write};
 
-use mjolnir_api::{Alert, Message, RemediationResult, Remediation};
-use mjolnir_api::plugin::{Discover};
+use mjolnir_api::{Alert, Discover, RemediationResult, Remediation};
 
 // What does your plugin look like?
 
 fn generate_usage() -> Discover {
-    let mut discover = Discover::new();
-    discover.set_name("alertmanager".into());
-    discover.set_author("Chris MacNaughton <chris@centaurisolutions.nl>".into());
-    discover.set_version("0.0.1".into());
-    discover.set_webhook(true);
-    let mut alerts = Vec::new();
-    let mut actions = Vec::new();
-    generate_alerts(&mut alerts);
-    generate_actions(&mut actions);
-
-    discover.set_actions(Remediation::vec_to_repeated(&actions));
-    discover.set_alerts(Alert::vec_to_repeated(&alerts));
-
-    discover
+    Discover::new("alertmanager")
+        .with_author("Chris MacNaughton <chris@centaurisolutions.nl>")
+        .with_version("0.0.1")
+        .with_alerts(generate_alerts())
+        .with_remediations(generate_actions())
+        .webhook()
 }
 
 // you can plug in actions and alerts below
 
-fn generate_alerts(_alerts: &mut Vec<Alert>) {
+fn generate_alerts() -> Vec<Alert> {
     // Your alerts here
+    vec![Alert {
+        alert_type: "alertmanager".into(),
+        name: None,
+        source: None,
+        args: vec![]
+    }]
 }
 
-fn generate_actions(_actions: &mut Vec<Remediation>) {
+fn generate_actions() -> Vec<Remediation> {
     // Your actions here
+    vec![]
+}
+
+fn list_plugins() -> HashMap<String, fn(HashMap<String, String>) -> RemediationResult> {
+    // This is an exmaple of what the below macro expands into
+    //
+    // let mut plugins: HashMap<String, _> = HashMap::new();
+    // plugins.insert("alertmanager".into(), alertmanager as fn(HashMap<String, String>) -> RemediationResult);
+    // plugins
+
+    // Insert your plugins here!
+    plugin_list!("alertmanager" => alertmanager)
 }
 
 // Your plugins should be functions wth this signature
@@ -80,15 +90,11 @@ struct Incoming {
     name: String,
 }
 
-fn main() {
-    let plugins = {
-        let mut plugins: HashMap<String, _> = HashMap::new();
-        // Insert your plugins here!
-        plugins.insert("alertmanager".into(), alertmanager);
-        plugins
-    };
+// Don't touch anything below here!
 
-    // Don't touch anything below here!
+fn main() {
+    let plugins = list_plugins();
+
     let mut arg_list = get_args();
 
     let plugin = arg_list.remove("plugin").unwrap_or_else(|| {
@@ -106,10 +112,8 @@ fn main() {
     });
 
     let res = f(arg_list);
-    
-    let bytes = res.write_to_bytes().unwrap();
 
-    io::stdout().write(&bytes).unwrap();
+    io::stdout().write(&res.write_to_bytes().unwrap()).unwrap();
 }
 
 fn get_args() -> HashMap<String, String> {

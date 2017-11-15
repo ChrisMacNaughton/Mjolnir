@@ -18,7 +18,7 @@ use hyper::server::{Http, Request, Response, Service};
 use hyper::{Body, Chunk, Method, StatusCode};
 use hyper::header::ContentLength;
 
-use zmq::{Message, Result as ZmqResult};
+use zmq::{Message, Result as ZmqResult, Socket};
 
 use protobuf::Message as ProtobufMsg;
 
@@ -124,6 +124,7 @@ mod tests {
                     name: Some("placeholder".into()),
                     source: Some("test".into()),
                     args: vec!["testarg=value".into()],
+                    next_remediation: 0,
                 }],
         };
 
@@ -141,6 +142,7 @@ mod tests {
                     name: Some("placeholder".into()),
                     source: Some("test".into()),
                     args: vec!["testarg=value".into()],
+                    next_remediation: 0,
                 });
             },
             _ => unreachable!()
@@ -380,7 +382,11 @@ impl Master {
                 if let Ok(agents) = self.agents.try_lock() {
                     if let Some(agent) = agents.iter().find(|a| a.hostname == source || a.ip.to_string() == source).clone() {
                         println!("Have an agent: {:?}", agent);
-                        agent.remediate(alert, &pipeline.action, config);
+                        if let Some(ref action) = pipeline.actions.get(alert.next_remediation as usize) {
+                            agent.remediate(alert, action, config);
+                        } else {
+                            println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
+                        }
                     }
                 }
             } else {
@@ -409,13 +415,7 @@ impl Master {
                         responder.send_msg(msg, 0)?;
                     }
                     OpType::REGISTER => {
-                        let mut o = Operation::new();
-                        // println!("Creating ack");
-                        o.set_operation_type(OpType::ACK);
-
-                        let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        ack(responder)?;
                         let mut agents = agents.lock().unwrap();
                         let register: Register = operation.get_register().clone().into();
                         let agent = Agent {
@@ -440,27 +440,26 @@ impl Master {
                         println!("#{} Agents", agents.len());
                     }
                     OpType::ALERT => {
-                        let mut o = Operation::new();
-                        // println!("Creating ack for alert");
-                        o.set_operation_type(OpType::ACK);
-
-                        let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        ack(responder)?;
 
                         let alert: Alert = operation.get_alert().into();
                         let _ = sender.send(MasterAction::Alert(alert));
                     }
+                    OpType::REMEDIATION_RESULT => {
+                        ack(responder)?;
+
+                        let result: RemediationResult = operation.get_result().into();
+                        if result.result.is_err() {
+                            // let mut action = result.alert
+                            for alert in result.alerts {
+                                let _ = sender.send(MasterAction::Alert(alert));
+                            }
+                        }
+                        
+                    }
                     _ => {
                         println!("Not quite handling {:?} yet", operation);
-
-                        let mut o = Operation::new();
-                        // println!("Creating ack for {:?}", operation.get_operation_type());
-                        o.set_operation_type(OpType::ACK);
-
-                        let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        ack(responder)?
                     }
                 }
                 Ok(())
@@ -559,9 +558,11 @@ impl Master {
 
     fn validate_pipelines(&self, pipelines: &Vec<Pipeline>) -> Result<(), String> {
         for pipeline in pipelines {
-            println!("Validating we have a plugin configured for '{}'", pipeline.action.plugin);
-            if !self.plugins.iter().any(|p| p.name == pipeline.action.plugin) {
-                return Err(format!("{} has no matching plugin", pipeline.action.plugin));
+            for action in &pipeline.actions {
+                println!("Validating we have a plugin configured for '{}'", action.plugin);
+                if !self.plugins.iter().any(|p| p.name == action.plugin) {
+                    return Err(format!("{} has no matching plugin", action.plugin));
+                }
             }
         }
         Ok(())
@@ -646,4 +647,14 @@ fn not_found(req: &Request) -> Box<
         Box::new(futures::future::ok(Response::new()
             .with_status(StatusCode::NotFound)
             .with_header(ContentLength(0))))
+}
+
+fn ack(responder: &Socket) -> ZmqResult<()>{
+    let mut o = Operation::new();
+    // println!("Creating ack for alert");
+    o.set_operation_type(OpType::ACK);
+
+    let encoded = o.write_to_bytes().unwrap();
+    let msg = Message::from_slice(&encoded)?;
+    responder.send_msg(msg, 0)
 }
