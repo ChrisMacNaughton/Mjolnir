@@ -50,8 +50,7 @@ before_script: |
     cd $TRAVIS_BUILD_DIR
   fi
 script:
-  - cargo build --all
-  - cargo test --all
+  - cargo test --all --verbose
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
