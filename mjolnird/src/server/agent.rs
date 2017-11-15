@@ -98,7 +98,7 @@ impl Agent {
                     }
                     OpType::REMEDIATE => {
                         let mut o = Operation::new();
-                        println!("Creating ack for {:?}", operation.get_operation_type());
+                        // println!("Creating ack for {:?}", operation.get_operation_type());
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
@@ -121,7 +121,7 @@ impl Agent {
                                 let msg = Message::from_slice(&encoded).unwrap();
                                 match socket.send_msg(msg, 0) {
                                     Ok(_s) => {},
-                                    Err(e) => println!("Problem snding result: {:?}", e)
+                                    Err(e) => println!("Problem sending result: {:?}", e)
                                 }
                             }
                             Err(e) => println!("problem connecting to socket: {:?}", e),
@@ -132,7 +132,7 @@ impl Agent {
                         println!("Not quite handling {:?} yet", operation);
 
                         let mut o = Operation::new();
-                        println!("Creating ack for {:?}", operation.get_operation_type());
+                        // println!("Creating ack for {:?}", operation.get_operation_type());
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
@@ -256,16 +256,16 @@ fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationRes
     cmd.arg(format!("plugin={}", plugin.name));
     // cmd.arg(format!("body={}", body));
     for arg in &remediation.args {
-        println!("Adding {} to {:?}", arg, cmd);
+        // println!("Adding {} to {:?}", arg, cmd);
         cmd.arg(&arg);
     }
     if let Some(ref alert) = remediation.alert {
         for arg in &alert.args {
-            println!("Adding {} to {:?}", arg, cmd);
+            // println!("Adding {} to {:?}", arg, cmd);
             cmd.arg(&arg);
         }
     }
-    println!("About to run command: {:?}", cmd);
+    // println!("About to run command: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {

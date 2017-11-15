@@ -154,6 +154,7 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
+    // println!("About to run command: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {
@@ -182,6 +183,7 @@ impl Master {
     }
 
     fn handle_webhook(&self, data: String) {
+        // println!("About to parse {}", data);
         let result = RemediationResult::from_string(&data);
         for alert in result.alerts {
             let _ = self.sender.send(MasterAction::Alert(alert));
@@ -198,7 +200,7 @@ impl Master {
             Error = hyper::Error,
         >,
     > {
-        println!("Responding to webook {} at {}", name, req.path());
+        // println!("Responding to webook {} at {}", name, req.path());
         // let plugins = plugins.clone();
         let hook = self.plugins
             .iter()
@@ -308,6 +310,8 @@ impl Master {
                         agent.remediate(alert, &pipeline.action, config);
                     }
                 }
+            } else {
+                println!("PENDING : Handle alerts with no target");
             }
         } else {
             println!("Ignoring {:?}, no configured pipeline", alert);
@@ -333,7 +337,7 @@ impl Master {
                     }
                     OpType::REGISTER => {
                         let mut o = Operation::new();
-                        println!("Creating ack");
+                        // println!("Creating ack");
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
@@ -364,7 +368,7 @@ impl Master {
                     }
                     OpType::ALERT => {
                         let mut o = Operation::new();
-                        println!("Creating ack for alert");
+                        // println!("Creating ack for alert");
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
@@ -378,7 +382,7 @@ impl Master {
                         println!("Not quite handling {:?} yet", operation);
 
                         let mut o = Operation::new();
-                        println!("Creating ack for {:?}", operation.get_operation_type());
+                        // println!("Creating ack for {:?}", operation.get_operation_type());
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
