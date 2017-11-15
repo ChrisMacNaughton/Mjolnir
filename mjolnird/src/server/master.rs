@@ -104,7 +104,8 @@ impl Agent {
                 // println!("Creating PING");
                 o.set_operation_type(OpType::REMEDIATE);
                 let mut remediation = remediation.clone();
-                remediation.target = alert.source;
+                remediation.target = alert.source.clone();
+                remediation.alert = Some(alert);
                 o.set_remediate(remediation.into());
                 let encoded = o.write_to_bytes().unwrap();
                 let msg = Message::from_slice(&encoded).unwrap();
@@ -154,13 +155,14 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
     println!("About to run command: {:?}", cmd);
-    if let Ok(output) = cmd.output() {
-        match String::from_utf8(output.stdout) {
-            Ok(s) => s,
-            Err(_) => "".into(),
+    match cmd.output() {
+        Ok(output) => {
+            match String::from_utf8(output.stdout) {
+                Ok(s) => s,
+                Err(e) => format!("{:?}", e),
+            }
         }
-    } else {
-        "Ok".into()
+        Err(e) => format!("{:?}", e)
     }
 }
 
@@ -181,6 +183,7 @@ impl Master {
     }
 
     fn handle_webhook(&self, data: String) {
+        println!("About to parse {}", data);
         let result = RemediationResult::from_string(&data);
         for alert in result.alerts {
             let _ = self.sender.send(MasterAction::Alert(alert));
@@ -447,16 +450,16 @@ impl Master {
                 for file in dir {
                     if let Ok(file) = file {
                         if let Ok(output) = Command::new(file.path()).output() {
-                            if let Ok(plugin) = PluginEntry::try_from(
+                            match PluginEntry::try_from(
                                 &output.stdout,
-                                file.path(),
-                            )
-                            {
-                                if !plugins.contains(&plugin) {
-                                    plugins.push(plugin);
+                                &file.path(),
+                            ) {
+                                Ok(plugin) => {
+                                    if !plugins.contains(&plugin) {
+                                        plugins.push(plugin);
+                                    }
                                 }
-                            } else {
-                                println!("Had a problem loading pluginn at {:?}", file.path());
+                                Err(e) => println!("Had a problem loading plugin at {}: {:?}", file.path().display(), e)
                             }
                         }
                     }

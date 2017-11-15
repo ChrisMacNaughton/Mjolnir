@@ -1,4 +1,5 @@
 use plugin::RemediationRequest;
+use alert::Alert;
 use RepeatedField;
 
 #[cfg(test)]
@@ -13,6 +14,7 @@ mod tests {
             plugin: "Test".into(),
             target: Some("awesomehost.local".into()),
             args: vec!["body".into()],
+            alert: None,
         };
 
         let request: RemediationRequest = remediation.clone().into();
@@ -29,6 +31,7 @@ mod tests {
             plugin: "Test".into(),
             target: None,
             args: vec!["body".into()],
+            alert: None,
         };
 
         let request: RemediationRequest = remediation.clone().into();
@@ -45,6 +48,7 @@ mod tests {
             plugin: "Test".into(),
             target: None,
             args: vec!["body".into()],
+            alert: None,
         }];
 
         let repeated = Remediation::vec_to_repeated(&r);
@@ -57,10 +61,16 @@ pub struct Remediation {
     pub plugin: String,
     pub target: Option<String>,
     pub args: Vec<String>,
+    pub alert: Option<Alert>,
 }
 
 impl<'a> From<&'a RemediationRequest> for Remediation {
     fn from(remediation: &RemediationRequest) -> Remediation {
+        let alert = if remediation.has_alert() {
+            Some(remediation.get_alert().into())
+        } else {
+            None
+        };
         Remediation {
             plugin: remediation.get_plugin().into(),
             target: if remediation.has_target() {
@@ -69,6 +79,7 @@ impl<'a> From<&'a RemediationRequest> for Remediation {
                 None
             },
             args: remediation.get_args().into(),
+            alert: alert,
         }
     }
 }
@@ -98,6 +109,9 @@ impl<'a> From<&'a Remediation> for RemediationRequest {
             repeated_args.push(arg.into());
         }
         a.set_args(repeated_args);
+        if let Some(ref alert) = remediation.alert {
+            a.set_alert(alert.clone().into());
+        }
         a
     }
 }

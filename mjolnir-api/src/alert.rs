@@ -14,6 +14,7 @@ mod tests {
             alert_type: "Test".into(),
             name: Some("placeholder".into()),
             source: Some("test".into()),
+            args: vec![],
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -29,6 +30,7 @@ mod tests {
             alert_type: "Test".into(),
             name: None,
             source: None,
+            args: vec![],
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -44,6 +46,7 @@ mod tests {
             alert_type: "Test".into(),
             name: None,
             source: None,
+            args: vec![],
         }];
 
         let repeated = Alert::vec_to_repeated(&r);
@@ -57,6 +60,7 @@ pub struct Alert {
     pub alert_type: String,
     pub name: Option<String>,
     pub source: Option<String>,
+    pub args: Vec<String>,
 }
 
 impl PartialEq for Alert {
@@ -80,6 +84,7 @@ impl<'a> From<&'a plugin::Alert> for Alert {
             } else {
                 None
             },
+            args: alert.get_args().into()
         }
     }
 }
@@ -100,6 +105,11 @@ impl<'a> From<&'a Alert> for plugin::Alert {
         if let Some(ref source) = alert.source {
             a.set_source(source.clone());
         }
+        let mut repeated_args = RepeatedField::default();
+        for arg in alert.args.clone() {
+            repeated_args.push(arg.into());
+        }
+        a.set_args(repeated_args);
 
         // d.set_alerts()
         a

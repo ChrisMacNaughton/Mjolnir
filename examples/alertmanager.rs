@@ -1,9 +1,17 @@
 extern crate mjolnir_api;
 
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
+
 use std::collections::HashMap;
 use std::env;
 use std::process;
 use std::io::{self, Write};
+
+use serde_json::Error;
 
 use mjolnir_api::{Alert, Message, RepeatedField, RemediationResult, Remediation};
 use mjolnir_api::plugin::{Discover, RemediationRequest};
@@ -40,23 +48,38 @@ fn generate_actions(_actions: &mut Vec<Remediation>) {
 // Your plugins should be functions wth this signature
 
 fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
-    let source = if let Some(body) = args.get("body") {
+    let body: String = if let Some(body) = args.get("body") {
         if body.len() > 0 {
-            Some(body.clone())
+            body.clone()
         } else {
-            None
+            return RemediationResult::new().err(format!("Empty Body"))
         }
     } else {
-        None
+        return RemediationResult::new().err(format!("Missing required argument: Body"))
     };
-    let mut result = RemediationResult::new()
-        .err("Test")
-        .with_alert(Alert {
-            alert_type: "alertmanager".into(),
-            name: Some("disk-full".into()),
-            source: source,
-        });
-    result
+    let alert: Incoming = match serde_json::from_str(&body) {
+        Ok(a) => a,
+        Err(e) => return RemediationResult::new().err(format!("Failed to parse json: {:?}", e))
+    };
+
+    RemediationResult::new()
+        .ok()
+        .with_alert(
+            Alert {
+                alert_type: "alertmanager".into(),
+                name: Some(alert.name),
+                source: Some(alert.source),
+                args: vec![format!("path={}", alert.path)]
+            }
+        )
+}
+
+// You may want custom structs to handle input
+#[derive(Serialize, Deserialize)]
+struct Incoming {
+    source: String,
+    path: String,
+    name: String,
 }
 
 fn main() {

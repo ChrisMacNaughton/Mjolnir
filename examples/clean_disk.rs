@@ -2,11 +2,12 @@ extern crate mjolnir_api;
 
 use std::collections::HashMap;
 use std::env;
+use std::fs;
 use std::process;
 use std::io::{self, Write};
 
-use mjolnir_api::{Message, RepeatedField, RemediationResultType};
-use mjolnir_api::plugin::{Alert, Discover, RemediationRequest, RemediationResult};
+use mjolnir_api::{Alert, Message, RemediationResult, Remediation};
+use mjolnir_api::plugin::{Discover};
 
 // What does your plugin look like?
 
@@ -16,35 +17,79 @@ fn generate_usage() -> Discover {
     discover.set_author("Chris MacNaughton <chris@centaurisolutions.nl>".into());
     discover.set_version("0.0.1".into());
     discover.set_webhook(false);
-    generate_alerts(discover.mut_alerts());
-    generate_actions(discover.mut_actions());
+    let mut alerts = Vec::new();
+    let mut actions = Vec::new();
+    generate_alerts(&mut alerts);
+    generate_actions(&mut actions);
+
+    discover.set_actions(Remediation::vec_to_repeated(&actions));
+    discover.set_alerts(Alert::vec_to_repeated(&alerts));
 
     discover
 }
 
 // you can plug in actions and alerts below
 
-fn generate_alerts(_alerts: &mut RepeatedField<Alert>) {
+fn generate_alerts(_alerts: &mut Vec<Alert>) {
     // Your alerts here
 }
 
-fn generate_actions(actions: &mut RepeatedField<RemediationRequest>) {
+fn generate_actions(actions: &mut Vec<Remediation>) {
     // Your actions here
-    let mut action = RemediationRequest::new();
-    action.set_plugin("clean".into());
-    let mut args = RepeatedField::new();
-    args.push("path".into());
-    action.set_args(args);
-    actions.push(action);
+    actions.push(Remediation {
+        plugin: "clean_disk".into(),
+        target: None,
+        args: vec!["path".into()],
+        alert: None,
+    });
+    // actions.push(action.into());
 }
 
 // Your plugins should be functions wth this signature
 
 fn clean(args: HashMap<String, String>) -> RemediationResult {
-    let mut result = RemediationResult::new();
-    result.set_result(RemediationResultType::OK);
+    let result = RemediationResult::new();
+    match args.get("path") {
+        Some(s) => {
+            match fs::read_dir(s) {
+                Ok(dir) => {
+                    let mut has_failed = false;
+                    let mut failed_entry = String::new();
+                    for entry in dir {
+                        if let Ok(entry) = entry {
+                            let path = entry.path();
+
+                            if path.is_dir() {
+                                if let Err(e) = fs::remove_dir_all(&path) {
+                                    if has_failed == false {
+                                        has_failed = true;
+                                        failed_entry = format!("Failed to remove {}: {:?}", path.display(), e);
+                                    }
+                                }
+                            } else {
+                                if let Err(e) = fs::remove_file(&path) {
+                                    if has_failed == false {
+                                        has_failed = true;
+                                        failed_entry = format!("Failed to remove {}: {:?}", path.display(), e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if has_failed {
+                        return result.err(failed_entry);
+                    }
+                },
+                Err(e) => return result.err(format!("couldn't reead directory {}: {:?}", s, e)),
+            }
+        },
+        None => {
+            return result.err("Missing required argument: Path");
+        }
+    }
+    // result.set_result(RemediationResultType::OK);
     // Your plugin action here
-    println!("Running the clean plugin with args: {:?}", args);
+    // println!("Running the clean plugin with args: {:?}", args);
     result
 }
 
@@ -52,7 +97,7 @@ fn main() {
     let plugins = {
         let mut plugins: HashMap<String, _> = HashMap::new();
         // Insert your plugins here!
-        plugins.insert("clean".into(), clean);
+        plugins.insert("clean_disk".into(), clean);
         plugins
     };
 
@@ -73,20 +118,22 @@ fn main() {
         process::exit(1);
     });
 
-    f(arg_list);
+    let res = f(arg_list);
+    
+    let bytes = res.write_to_bytes().unwrap();
+
+    io::stdout().write(&bytes).unwrap();
 }
 
 fn get_args() -> HashMap<String, String> {
     let mut args = env::args();
     if args.len() == 1 {
-        // println!("Pumping out the protobuf!");
-
+        // This is the usage directions to Mjolnir
         io::stdout()
             .write(&generate_usage().write_to_bytes().unwrap())
             .unwrap();
         process::exit(0);
     } else {
-        // println!("Hello, world!");
         let mut arg_list: HashMap<String, String> = HashMap::new();
         let _ = args.next();
         for arg in args {

@@ -27,6 +27,7 @@ pub struct RemediationRequest {
     plugin: ::protobuf::SingularField<::std::string::String>,
     target: ::protobuf::SingularField<::std::string::String>,
     args: ::protobuf::RepeatedField<::std::string::String>,
+    alert: ::protobuf::SingularPtrField<Alert>,
     // special fields
     unknown_fields: ::protobuf::UnknownFields,
     cached_size: ::protobuf::CachedSize,
@@ -170,6 +171,47 @@ impl RemediationRequest {
     fn mut_args_for_reflect(&mut self) -> &mut ::protobuf::RepeatedField<::std::string::String> {
         &mut self.args
     }
+
+    // optional .Mjolnir.Alert alert = 4;
+
+    pub fn clear_alert(&mut self) {
+        self.alert.clear();
+    }
+
+    pub fn has_alert(&self) -> bool {
+        self.alert.is_some()
+    }
+
+    // Param is passed by value, moved
+    pub fn set_alert(&mut self, v: Alert) {
+        self.alert = ::protobuf::SingularPtrField::some(v);
+    }
+
+    // Mutable pointer to the field.
+    // If field is not initialized, it is initialized with default value first.
+    pub fn mut_alert(&mut self) -> &mut Alert {
+        if self.alert.is_none() {
+            self.alert.set_default();
+        }
+        self.alert.as_mut().unwrap()
+    }
+
+    // Take field
+    pub fn take_alert(&mut self) -> Alert {
+        self.alert.take().unwrap_or_else(|| Alert::new())
+    }
+
+    pub fn get_alert(&self) -> &Alert {
+        self.alert.as_ref().unwrap_or_else(|| Alert::default_instance())
+    }
+
+    fn get_alert_for_reflect(&self) -> &::protobuf::SingularPtrField<Alert> {
+        &self.alert
+    }
+
+    fn mut_alert_for_reflect(&mut self) -> &mut ::protobuf::SingularPtrField<Alert> {
+        &mut self.alert
+    }
 }
 
 impl ::protobuf::Message for RemediationRequest {
@@ -177,6 +219,11 @@ impl ::protobuf::Message for RemediationRequest {
         if self.plugin.is_none() {
             return false;
         }
+        for v in &self.alert {
+            if !v.is_initialized() {
+                return false;
+            }
+        };
         true
     }
 
@@ -192,6 +239,9 @@ impl ::protobuf::Message for RemediationRequest {
                 },
                 3 => {
                     ::protobuf::rt::read_repeated_string_into(wire_type, is, &mut self.args)?;
+                },
+                4 => {
+                    ::protobuf::rt::read_singular_message_into(wire_type, is, &mut self.alert)?;
                 },
                 _ => {
                     ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
@@ -214,6 +264,10 @@ impl ::protobuf::Message for RemediationRequest {
         for value in &self.args {
             my_size += ::protobuf::rt::string_size(3, &value);
         };
+        if let Some(ref v) = self.alert.as_ref() {
+            let len = v.compute_size();
+            my_size += 1 + ::protobuf::rt::compute_raw_varint32_size(len) + len;
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
@@ -229,6 +283,11 @@ impl ::protobuf::Message for RemediationRequest {
         for v in &self.args {
             os.write_string(3, &v)?;
         };
+        if let Some(ref v) = self.alert.as_ref() {
+            os.write_tag(4, ::protobuf::wire_format::WireTypeLengthDelimited)?;
+            os.write_raw_varint32(v.get_cached_size())?;
+            v.write_to_with_cached_sizes(os)?;
+        }
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -288,6 +347,11 @@ impl ::protobuf::MessageStatic for RemediationRequest {
                     RemediationRequest::get_args_for_reflect,
                     RemediationRequest::mut_args_for_reflect,
                 ));
+                fields.push(::protobuf::reflect::accessor::make_singular_ptr_field_accessor::<_, ::protobuf::types::ProtobufTypeMessage<Alert>>(
+                    "alert",
+                    RemediationRequest::get_alert_for_reflect,
+                    RemediationRequest::mut_alert_for_reflect,
+                ));
                 ::protobuf::reflect::MessageDescriptor::new::<RemediationRequest>(
                     "RemediationRequest",
                     fields,
@@ -303,6 +367,7 @@ impl ::protobuf::Clear for RemediationRequest {
         self.clear_plugin();
         self.clear_target();
         self.clear_args();
+        self.clear_alert();
         self.unknown_fields.clear();
     }
 }
@@ -667,6 +732,7 @@ pub struct Alert {
     alert_type: ::protobuf::SingularField<::std::string::String>,
     name: ::protobuf::SingularField<::std::string::String>,
     source: ::protobuf::SingularField<::std::string::String>,
+    args: ::protobuf::RepeatedField<::std::string::String>,
     // special fields
     unknown_fields: ::protobuf::UnknownFields,
     cached_size: ::protobuf::CachedSize,
@@ -821,6 +887,39 @@ impl Alert {
     fn mut_source_for_reflect(&mut self) -> &mut ::protobuf::SingularField<::std::string::String> {
         &mut self.source
     }
+
+    // repeated string args = 4;
+
+    pub fn clear_args(&mut self) {
+        self.args.clear();
+    }
+
+    // Param is passed by value, moved
+    pub fn set_args(&mut self, v: ::protobuf::RepeatedField<::std::string::String>) {
+        self.args = v;
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_args(&mut self) -> &mut ::protobuf::RepeatedField<::std::string::String> {
+        &mut self.args
+    }
+
+    // Take field
+    pub fn take_args(&mut self) -> ::protobuf::RepeatedField<::std::string::String> {
+        ::std::mem::replace(&mut self.args, ::protobuf::RepeatedField::new())
+    }
+
+    pub fn get_args(&self) -> &[::std::string::String] {
+        &self.args
+    }
+
+    fn get_args_for_reflect(&self) -> &::protobuf::RepeatedField<::std::string::String> {
+        &self.args
+    }
+
+    fn mut_args_for_reflect(&mut self) -> &mut ::protobuf::RepeatedField<::std::string::String> {
+        &mut self.args
+    }
 }
 
 impl ::protobuf::Message for Alert {
@@ -844,6 +943,9 @@ impl ::protobuf::Message for Alert {
                 3 => {
                     ::protobuf::rt::read_singular_string_into(wire_type, is, &mut self.source)?;
                 },
+                4 => {
+                    ::protobuf::rt::read_repeated_string_into(wire_type, is, &mut self.args)?;
+                },
                 _ => {
                     ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
                 },
@@ -865,6 +967,9 @@ impl ::protobuf::Message for Alert {
         if let Some(ref v) = self.source.as_ref() {
             my_size += ::protobuf::rt::string_size(3, &v);
         }
+        for value in &self.args {
+            my_size += ::protobuf::rt::string_size(4, &value);
+        };
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
@@ -880,6 +985,9 @@ impl ::protobuf::Message for Alert {
         if let Some(ref v) = self.source.as_ref() {
             os.write_string(3, &v)?;
         }
+        for v in &self.args {
+            os.write_string(4, &v)?;
+        };
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -939,6 +1047,11 @@ impl ::protobuf::MessageStatic for Alert {
                     Alert::get_source_for_reflect,
                     Alert::mut_source_for_reflect,
                 ));
+                fields.push(::protobuf::reflect::accessor::make_repeated_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
+                    "args",
+                    Alert::get_args_for_reflect,
+                    Alert::mut_args_for_reflect,
+                ));
                 ::protobuf::reflect::MessageDescriptor::new::<Alert>(
                     "Alert",
                     fields,
@@ -954,6 +1067,7 @@ impl ::protobuf::Clear for Alert {
         self.clear_alert_type();
         self.clear_name();
         self.clear_source();
+        self.clear_args();
         self.unknown_fields.clear();
     }
 }
@@ -1444,22 +1558,23 @@ impl ::protobuf::reflect::ProtobufValue for Discover {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x13protos/plugin.proto\x12\x07Mjolnir\"X\n\x12RemediationRequest\x12\
+    \n\x13protos/plugin.proto\x12\x07Mjolnir\"~\n\x12RemediationRequest\x12\
     \x16\n\x06plugin\x18\x01\x20\x02(\tR\x06plugin\x12\x16\n\x06target\x18\
     \x02\x20\x01(\tR\x06target\x12\x12\n\x04args\x18\x03\x20\x03(\tR\x04args\
-    \"\xb6\x01\n\x11RemediationResult\x12=\n\x06result\x18\x01\x20\x02(\x0e2\
-    %.Mjolnir.RemediationResult.ResultTypeR\x06result\x12\x1b\n\terror_msg\
-    \x18\x02\x20\x01(\tR\x08errorMsg\x12&\n\x06alerts\x18\x03\x20\x03(\x0b2\
-    \x0e.Mjolnir.AlertR\x06alerts\"\x1d\n\nResultType\x12\x06\n\x02OK\x10\0\
-    \x12\x07\n\x03ERR\x10\x01\"R\n\x05Alert\x12\x1d\n\nalert_type\x18\x01\
-    \x20\x02(\tR\talertType\x12\x12\n\x04name\x18\x02\x20\x01(\tR\x04name\
-    \x12\x16\n\x06source\x18\x03\x20\x01(\tR\x06source\"\xc9\x01\n\x08Discov\
-    er\x12\x12\n\x04name\x18\x01\x20\x02(\tR\x04name\x12\x16\n\x06author\x18\
-    \x02\x20\x01(\tR\x06author\x12\x18\n\x07version\x18\x03\x20\x01(\tR\x07v\
-    ersion\x12&\n\x06alerts\x18\x04\x20\x03(\x0b2\x0e.Mjolnir.AlertR\x06aler\
-    ts\x12\x18\n\x07webhook\x18\x05\x20\x02(\x08R\x07webhook\x125\n\x07actio\
-    ns\x18\x06\x20\x03(\x0b2\x1b.Mjolnir.RemediationRequestR\x07actionsB\x02\
-    H\x01\
+    \x12$\n\x05alert\x18\x04\x20\x01(\x0b2\x0e.Mjolnir.AlertR\x05alert\"\xb6\
+    \x01\n\x11RemediationResult\x12=\n\x06result\x18\x01\x20\x02(\x0e2%.Mjol\
+    nir.RemediationResult.ResultTypeR\x06result\x12\x1b\n\terror_msg\x18\x02\
+    \x20\x01(\tR\x08errorMsg\x12&\n\x06alerts\x18\x03\x20\x03(\x0b2\x0e.Mjol\
+    nir.AlertR\x06alerts\"\x1d\n\nResultType\x12\x06\n\x02OK\x10\0\x12\x07\n\
+    \x03ERR\x10\x01\"f\n\x05Alert\x12\x1d\n\nalert_type\x18\x01\x20\x02(\tR\
+    \talertType\x12\x12\n\x04name\x18\x02\x20\x01(\tR\x04name\x12\x16\n\x06s\
+    ource\x18\x03\x20\x01(\tR\x06source\x12\x12\n\x04args\x18\x04\x20\x03(\t\
+    R\x04args\"\xc9\x01\n\x08Discover\x12\x12\n\x04name\x18\x01\x20\x02(\tR\
+    \x04name\x12\x16\n\x06author\x18\x02\x20\x01(\tR\x06author\x12\x18\n\x07\
+    version\x18\x03\x20\x01(\tR\x07version\x12&\n\x06alerts\x18\x04\x20\x03(\
+    \x0b2\x0e.Mjolnir.AlertR\x06alerts\x12\x18\n\x07webhook\x18\x05\x20\x02(\
+    \x08R\x07webhook\x125\n\x07actions\x18\x06\x20\x03(\x0b2\x1b.Mjolnir.Rem\
+    ediationRequestR\x07actionsB\x02H\x01\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {

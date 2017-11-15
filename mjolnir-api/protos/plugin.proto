@@ -8,6 +8,7 @@ message RemediationRequest {
   required string plugin = 1;
   optional string target = 2;
   repeated string args = 3;
+  optional Alert alert = 4;
 }
 
 // Agent response with result
@@ -26,6 +27,7 @@ message Alert {
   required string alert_type = 1;
   optional string name = 2;
   optional string source = 3;
+  repeated string args = 4;
 }
 
 message Discover {

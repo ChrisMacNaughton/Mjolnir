@@ -47,22 +47,28 @@ mod tests {
                     trigger: Alert {
                         alert_type: "alertmanager".into(),
                         name: Some("disk-full".into()),
-                        source: None
+                        source: None,
+                        args: vec![],
                     },
                     action: Remediation {
                         plugin: "clean_disk".into(),
                         target: None,
-                        args: vec![]
+                        args: vec![],
+                        alert: None,
                     }
                 }, Pipeline {
                     trigger: Alert {
                         alert_type: "test".into(),
                         name: None,
-                        source: None
+                        source: None,
+                        args: vec!["name=test".into()],
                     }, action: Remediation {
                         plugin: "something_else".into(),
                         target: None,
-                        args: vec!["name=test".into()] } }
+                        args: vec!["name=test".into()],
+                        alert: None,
+                    }
+                }
             ],
             pipelines
         )
@@ -106,6 +112,7 @@ fn load_pipeline_from_yaml(yaml: &str) -> Vec<Pipeline> {
                                 alert_type: alert_yaml["type"].as_str().expect("Couldn't parse the yaml into a pipeline").into(),
                                 name: alert_yaml["name"].as_str().map(|a| Some(a.into())).unwrap_or(None),
                                 source: None,
+                                args: vec![],
                             };
                             let remediation_yaml = &pipeline["action"];
                             let args = match remediation_yaml["args"] {
@@ -123,6 +130,7 @@ fn load_pipeline_from_yaml(yaml: &str) -> Vec<Pipeline> {
                                 plugin: remediation_yaml["type"].as_str().unwrap().into(),
                                 target: None,
                                 args: args,
+                                alert: None,
                             };
                             v.push(
                                 Pipeline {

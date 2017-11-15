@@ -22,10 +22,12 @@ mod tests {
                     alert_type: "Test1".into(),
                     name: None,
                     source: Some("test".into()),
+                    args: vec![],
                 },Alert {
                     alert_type: "Test2".into(),
                     name: None,
                     source: Some("test".into()),
+                    args: vec![],
                 }
             ],
             remediations: vec![
@@ -33,6 +35,7 @@ mod tests {
                     plugin: "Test".into(),
                     target: Some("awesomehost.local".into()),
                     args: vec!["body".into()],
+                    alert:  None,
                 },
             ],
             path: PathBuf::from("/tmp/test"),
@@ -49,7 +52,7 @@ mod tests {
     #[test]
     fn it_fails_parsing_gracefully() {
         let buff = [12];
-        let plugin = PluginEntry::try_from(&buff, PathBuf::from("/tmp"));
+        let plugin = PluginEntry::try_from(&buff, &PathBuf::from("/tmp"));
         assert!(plugin.is_err());
     }
 
@@ -128,7 +131,7 @@ mod tests {
             40,
             1,
         ];
-        let plugin = PluginEntry::try_from(&buff, PathBuf::from("/tmp")).unwrap();
+        let plugin = PluginEntry::try_from(&buff, &PathBuf::from("/tmp")).unwrap();
         println!("Plugin: {:?}", plugin);
         assert_eq!(plugin.name, "alertmanager");
         assert!(plugin.webhook);
@@ -147,11 +150,11 @@ pub struct PluginEntry {
 }
 
 impl PluginEntry {
-    pub fn try_from(input: &[u8], path: PathBuf) -> Result<PluginEntry,String> {
+    pub fn try_from(input: &[u8], path: &PathBuf) -> Result<PluginEntry,String> {
         match plugin::Discover::try_from(input) {
             Ok(entry) => {
                 let p: PluginEntry = entry.into();
-                Ok(p.with_path(path))
+                Ok(p.with_path(path.clone()))
             }
             Err(e) => {
                 Err(format!("Problem parsing: {:?}", e))
