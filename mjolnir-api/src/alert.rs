@@ -172,6 +172,11 @@ impl Alert {
         self
     }
 
+    pub fn with_arg(mut self, arg: String) -> Self {
+        self.args.push(arg);
+        self
+    }
+
     pub fn increment(mut self) -> Self {
         self.next_remediation += 1;
         self

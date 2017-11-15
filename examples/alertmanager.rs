@@ -14,6 +14,33 @@ use std::io::{self, Write};
 
 use mjolnir_api::{Alert, Discover, RemediationResult, Remediation};
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn it_parses_alertmanager_json() {
+        let json = r#"{
+    "groupLabels": {"alertname": "full-disk"},
+    "groupKey": "test",
+    "commonLabels": {"path": "/tmp/test", "alertname": "full-disk", "host": "10.0.1.10"},
+    "commonAnnotations": {},
+    "externalURL": "http://alertmanager.local",
+    "receiver": "malerts",
+    "version": "4",
+    "status": "firing",
+    "alerts": [{
+        "labels": {"path": "/tmp/test", "alertname": "full-disk", "host": "10.0.1.10"},
+        "status": "firing",
+        "annotations": {},
+        "generatorURL": "http://prometheus.local/graph?...",
+        "startsAt": "2017-01-01T00:00:00.000Z",
+        "endsAt": "0001-01-01T00:00:00Z"
+    }]
+}"#;
+        let alert: Incoming = serde_json::from_str(&json).unwrap();
+    }
+}
+
 // What does your plugin look like?
 
 fn generate_usage() -> Discover {
@@ -60,29 +87,84 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
     } else {
         return RemediationResult::new().err(format!("Missing required argument: Body"))
     };
-    let alert: Incoming = match serde_json::from_str(&body) {
+    let incoming: Incoming = match serde_json::from_str(&body) {
         Ok(a) => a,
         Err(e) => return RemediationResult::new().err(format!("Failed to parse json: {:?}", e))
     };
-
+    let alerts = incoming.alerts.iter().map(|a| {
+        let mut alert = Alert::new("alertmanager");
+        if let Some(name) = a.labels.get("alertname") {
+            alert = alert.with_name(name.clone());
+        }
+        if let Some(host) = a.labels.get("host") {
+            alert = alert.with_source(host.clone());
+        }
+        for (key, value) in &a.labels {
+            alert = alert.with_arg(format!("{}={}", key, value));
+        }
+        alert
+    }).collect();
     RemediationResult::new()
         .ok()
-        .with_alert(
-            Alert::new("alertmanager")
-                .with_name(alert.name)
-                .with_source(alert.source)
-                .with_args(vec![format!("path={}", alert.path)])
-        )
+        // .with_alert(
+        //     Alert::new("alertmanager")
+        //         .with_name(alert.name)
+        //         .with_source(alert.source)
+        //         .with_args(vec![format!("path={}", alert.path)])
+        // )
+        .with_alerts(alerts)
 }
 
 // You may want custom structs to handle input
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Incoming {
-    source: String,
-    path: String,
-    name: String,
+    version: String,
+    group_key: String,
+    status: Status,
+    receiver: String,
+    group_labels: HashMap<String, String>,
+    common_labels: HashMap<String, String>,
+    common_annotations: HashMap<String, String>,
+    externalURL: String,
+    alerts: Vec<PAlert>,
+    // source: String,
+    // path: String,
+    // name: String,
 }
 
+#[derive(Serialize, Deserialize)]
+enum Status {
+    resolved,
+    firing,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PAlert {
+    labels: HashMap<String, String>,
+    annotations: HashMap<String, String>,
+    // startsAt: String,
+    // endsAt: String,
+}
+// {
+//   "version": "4",
+//   "groupKey": <string>,    // key identifying the group of alerts (e.g. to deduplicate)
+//   "status": "<resolved|firing>",
+//   "receiver": <string>,
+//   "groupLabels": <object>,
+//   "commonLabels": <object>,
+//   "commonAnnotations": <object>,
+//   "externalURL": <string>,  // backlink to the Alertmanager.
+//   "alerts": [
+//     {
+//       "labels": <object>,
+//       "annotations": <object>,
+//       "startsAt": "<rfc3339>",
+//       "endsAt": "<rfc3339>"
+//     },
+//     ...
+//   ]
+// }
 // Don't touch anything below here!
 
 fn main() {
