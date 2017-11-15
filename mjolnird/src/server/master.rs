@@ -154,7 +154,6 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
-    println!("About to run command: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {
@@ -183,7 +182,6 @@ impl Master {
     }
 
     fn handle_webhook(&self, data: String) {
-        println!("About to parse {}", data);
         let result = RemediationResult::from_string(&data);
         for alert in result.alerts {
             let _ = self.sender.send(MasterAction::Alert(alert));
