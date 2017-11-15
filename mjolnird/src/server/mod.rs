@@ -28,16 +28,17 @@ mod tests {
     - alert:
         type: alertmanager
         name: disk-full
-      action:
-        type: clean_disk
-        # Optional: 
-        # args: [] 
+      actions:
+        -
+            type: clean_disk
+            # Optional: 
+            # args: [] 
     - alert:
         type: test
-      action:
-        type: something_else
-        args:
-        - name=test
+      actions:
+        - type: something_else
+          args:
+          - name=test
         "#;
         let pipelines = load_pipeline_from_yaml(yaml);
         println!("Pipelines: {:?}", pipelines);
@@ -45,24 +46,36 @@ mod tests {
             vec![
                 Pipeline {
                     trigger: Alert {
-                        title: "alertmanager".into(),
+                        alert_type: "alertmanager".into(),
                         name: Some("disk-full".into()),
-                        source: None
+                        source: None,
+                        args: vec![],
+                        next_remediation: 0,
                     },
-                    action: Remediation {
-                        plugin: "clean_disk".into(),
-                        target: None,
-                        args: vec![]
-                    }
+                    actions: vec![
+                        Remediation {
+                            plugin: "clean_disk".into(),
+                            target: None,
+                            args: vec![],
+                            alert: None,
+                        },
+                    ],
                 }, Pipeline {
                     trigger: Alert {
-                        title: "test".into(),
+                        alert_type: "test".into(),
                         name: None,
-                        source: None
-                    }, action: Remediation {
-                        plugin: "something_else".into(),
-                        target: None,
-                        args: vec!["name=test".into()] } }
+                        source: None,
+                        args: vec!["name=test".into()],
+                        next_remediation: 0,
+                    }, actions: vec![
+                        Remediation {
+                            plugin: "something_else".into(),
+                            target: None,
+                            args: vec!["name=test".into()],
+                            alert: None,
+                        },
+                    ],
+                }
             ],
             pipelines
         )
@@ -103,31 +116,40 @@ fn load_pipeline_from_yaml(yaml: &str) -> Vec<Pipeline> {
                             // println!("pipeline: {:?}", pipeline);
                             let alert_yaml = &pipeline["alert"];
                             let alert = Alert {
-                                title: alert_yaml["type"].as_str().expect("Couldn't parse the yaml into a pipeline").into(),
+                                alert_type: alert_yaml["type"].as_str().expect("Couldn't parse the yaml into a pipeline").into(),
                                 name: alert_yaml["name"].as_str().map(|a| Some(a.into())).unwrap_or(None),
                                 source: None,
+                                args: vec![],
+                                next_remediation: 0,
                             };
-                            let remediation_yaml = &pipeline["action"];
-                            let args = match remediation_yaml["args"] {
-                                Array(ref args) => {
-                                    args
-                                        .iter()
-                                        .map(|a| a.as_str())
-                                        .filter(|a| a.is_some())
-                                        .map(|a| a.unwrap().into())
-                                        .collect()
-                                },
+                            let actions: Vec<Remediation> = match pipeline["actions"] {
+                                Array(ref actions) => {
+                                    actions.iter().map(|action| {
+                                        let args = match action["args"] {
+                                            Array(ref args) => {
+                                                args
+                                                    .iter()
+                                                    .map(|a| a.as_str())
+                                                    .filter(|a| a.is_some())
+                                                    .map(|a| a.unwrap().into())
+                                                    .collect()
+                                            },
+                                            _ => vec![]
+                                        };
+                                        Remediation {
+                                            plugin: action["type"].as_str().unwrap().into(),
+                                            target: None,
+                                            args: args,
+                                            alert: None,
+                                        }
+                                    }).collect()
+                                }
                                 _ => vec![]
-                            };
-                            let remediation = Remediation {
-                                plugin: remediation_yaml["type"].as_str().unwrap().into(),
-                                target: None,
-                                args: args,
                             };
                             v.push(
                                 Pipeline {
                                     trigger: alert,
-                                    action: remediation,
+                                    actions: actions,
                                 }
                             )
                         }
@@ -157,7 +179,7 @@ fn server_pubkey(config: &Config) -> String {
 }
 
 fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
-    println!("Starting zmq sender with version({:?})", zmq::version());
+    // println!("Starting zmq sender with version({:?})", zmq::version());
     let context = zmq::Context::new();
     let requester = context.socket(zmq::REQ)?;
     let client_keypair = zmq::CurveKeyPair::new()?;
@@ -165,13 +187,13 @@ fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
     requester.set_curve_serverkey(server_publickey)?;
     requester.set_curve_publickey(&client_keypair.public_key)?;
     requester.set_curve_secretkey(&client_keypair.secret_key)?;
-    println!("Connecting to tcp://{}:{}", host, port);
+    // println!("Connecting to tcp://{}:{}", host, port);
     assert!(
         requester
             .connect(&format!("tcp://{}:{}", host, port))
             .is_ok()
     );
-    println!("Client mechanism: {:?}", requester.get_mechanism());
+    // println!("Client mechanism: {:?}", requester.get_mechanism());
 
     Ok(requester)
 }
@@ -189,7 +211,7 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         let _ = file.read_to_string(&mut key);
         s.set_curve_secretkey(&key)?;
     } else {
-        println!("Creating new curve keypair");
+        // println!("Creating new curve keypair");
         let keypair = zmq::CurveKeyPair::new()?;
         s.set_curve_secretkey(&keypair.secret_key)?;
 
@@ -199,8 +221,8 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         f.write(keypair.secret_key.as_bytes()).unwrap();
     }
 
-    println!("Server mechanism: {:?}", s.get_mechanism());
-    println!("Curve server: {:?}", s.is_curve_server());
+    // println!("Server mechanism: {:?}", s.get_mechanism());
+    // println!("Curve server: {:?}", s.is_curve_server());
 
     Ok(())
 }
@@ -225,8 +247,8 @@ fn zmq_listen(
     loop {
         match responder.recv_bytes(0) {
             Ok(msg) => {
-                println!("Got msg len: {}", msg.len());
-                println!("Parsing msg {:?} as hex", msg);
+                // println!("Got msg len: {}", msg.len());
+                // println!("Parsing msg {:?} as hex", msg);
                 let operation = match parse_from_bytes::<Operation>(&msg) {
                     Ok(bytes) => bytes,
                     Err(e) => {
@@ -234,7 +256,7 @@ fn zmq_listen(
                         continue;
                     }
                 };
-                println!("Operation is: {:?}", operation);
+                // println!("Operation is: {:?}", operation);
                 callback(operation, &responder)?
             }
             Err(e) => {

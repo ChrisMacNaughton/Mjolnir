@@ -1,60 +1,93 @@
+#[macro_use]
 extern crate mjolnir_api;
+
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 use std::collections::HashMap;
 use std::env;
 use std::process;
 use std::io::{self, Write};
 
-use mjolnir_api::{Message, RepeatedField, RemediationResultType};
-use mjolnir_api::plugin::{Alert, Discover, RemediationRequest, RemediationResult};
+use mjolnir_api::{Alert, Discover, RemediationResult, Remediation};
 
 // What does your plugin look like?
 
 fn generate_usage() -> Discover {
-    let mut discover = Discover::new();
-    discover.set_name("alertmanager".into());
-    discover.set_author("Chris MacNaughton <chris@centaurisolutions.nl>".into());
-    discover.set_version("0.0.1".into());
-    discover.set_webhook(true);
-
-    generate_alerts(discover.mut_alerts());
-    generate_actions(discover.mut_actions());
-
-    discover
+    Discover::new("alertmanager")
+        .with_author("Chris MacNaughton <chris@centaurisolutions.nl>")
+        .with_version("0.0.1")
+        .with_alerts(generate_alerts())
+        .with_remediations(generate_actions())
+        .webhook()
 }
 
 // you can plug in actions and alerts below
 
-fn generate_alerts(_alerts: &mut RepeatedField<Alert>) {
+fn generate_alerts() -> Vec<Alert> {
     // Your alerts here
+    vec![Alert::new("alertmanager")]
 }
 
-fn generate_actions(_actions: &mut RepeatedField<RemediationRequest>) {
+fn generate_actions() -> Vec<Remediation> {
     // Your actions here
+    vec![]
+}
+
+fn list_plugins() -> HashMap<String, fn(HashMap<String, String>) -> RemediationResult> {
+    // This is an exmaple of what the below macro expands into
+    //
+    // let mut plugins: HashMap<String, _> = HashMap::new();
+    // plugins.insert("alertmanager".into(), alertmanager as fn(HashMap<String, String>) -> RemediationResult);
+    // plugins
+
+    // Insert your plugins here!
+    plugin_list!("alertmanager" => alertmanager)
 }
 
 // Your plugins should be functions wth this signature
 
 fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
-    let mut result = RemediationResult::new();
-    result.set_result(RemediationResultType::OK);
-    // Your plugin action here
-    println!(
-        "Args for alertmanager are: {:?}\nThis output comes from the `alertmanager` plugin",
-        args
-    );
-    result
-}
-
-fn main() {
-    let plugins = {
-        let mut plugins: HashMap<String, _> = HashMap::new();
-        // Insert your plugins here!
-        plugins.insert("alertmanager".into(), alertmanager);
-        plugins
+    let body: String = if let Some(body) = args.get("body") {
+        if body.len() > 0 {
+            body.clone()
+        } else {
+            return RemediationResult::new().err(format!("Empty Body"))
+        }
+    } else {
+        return RemediationResult::new().err(format!("Missing required argument: Body"))
+    };
+    let alert: Incoming = match serde_json::from_str(&body) {
+        Ok(a) => a,
+        Err(e) => return RemediationResult::new().err(format!("Failed to parse json: {:?}", e))
     };
 
-    // Don't touch anything below here!
+    RemediationResult::new()
+        .ok()
+        .with_alert(
+            Alert::new("alertmanager")
+                .with_name(alert.name)
+                .with_source(alert.source)
+                .with_args(vec![format!("path={}", alert.path)])
+        )
+}
+
+// You may want custom structs to handle input
+#[derive(Serialize, Deserialize)]
+struct Incoming {
+    source: String,
+    path: String,
+    name: String,
+}
+
+// Don't touch anything below here!
+
+fn main() {
+    let plugins = list_plugins();
+
     let mut arg_list = get_args();
 
     let plugin = arg_list.remove("plugin").unwrap_or_else(|| {
@@ -71,7 +104,9 @@ fn main() {
         process::exit(1);
     });
 
-    f(arg_list);
+    let res = f(arg_list);
+
+    io::stdout().write(&res.write_to_bytes().unwrap()).unwrap();
 }
 
 fn get_args() -> HashMap<String, String> {

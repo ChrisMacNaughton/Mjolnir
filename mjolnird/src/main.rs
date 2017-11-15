@@ -1,10 +1,11 @@
 #[macro_use]
 extern crate clap;
+extern crate futures;
 extern crate hostname;
 extern crate hyper;
-extern crate futures;
-extern crate tokio_core;
 extern crate protobuf;
+extern crate reqwest;
+extern crate tokio_core;
 extern crate xdg;
 extern crate yaml_rust;
 extern crate zmq;

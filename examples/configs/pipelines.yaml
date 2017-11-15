@@ -1,6 +1,6 @@
 pipelines:
 - alert:
     type: alertmanager
-    name: disk-full
-  action:
-    type: clean_disk
+    name: full-disk
+  actions:
+    - type: clean_disk
