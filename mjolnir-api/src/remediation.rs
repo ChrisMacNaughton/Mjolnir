@@ -19,6 +19,7 @@ mod tests {
                     name: None,
                     source: Some("test".into()),
                     args: vec![],
+                    next_remediation: 0,
             }),
         };
 

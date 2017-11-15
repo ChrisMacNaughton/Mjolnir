@@ -30,6 +30,7 @@ mod tests {
                 name: Some("placeholder".into()),
                 source: Some("test".into()),
                 args: vec!["testarg=value".into()],
+                next_remediation: 0,
             })
             .with_remediation(Remediation {
                 plugin: "Test".into(),

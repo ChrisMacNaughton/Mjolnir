@@ -23,11 +23,13 @@ mod tests {
                     name: None,
                     source: Some("test".into()),
                     args: vec![],
+                    next_remediation: 0,
                 },Alert {
                     alert_type: "Test2".into(),
                     name: None,
                     source: Some("test".into()),
                     args: vec![],
+                    next_remediation: 0,
                 }
             ],
             remediations: vec![

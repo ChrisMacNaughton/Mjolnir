@@ -29,12 +29,7 @@ fn generate_usage() -> Discover {
 
 fn generate_alerts() -> Vec<Alert> {
     // Your alerts here
-    vec![Alert {
-        alert_type: "alertmanager".into(),
-        name: None,
-        source: None,
-        args: vec![]
-    }]
+    vec![Alert::new("alertmanager")]
 }
 
 fn generate_actions() -> Vec<Remediation> {
@@ -73,12 +68,10 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
     RemediationResult::new()
         .ok()
         .with_alert(
-            Alert {
-                alert_type: "alertmanager".into(),
-                name: Some(alert.name),
-                source: Some(alert.source),
-                args: vec![format!("path={}", alert.path)]
-            }
+            Alert::new("alertmanager")
+                .with_name(alert.name)
+                .with_source(alert.source)
+                .with_args(vec![format!("path={}", alert.path)])
         )
 }
 

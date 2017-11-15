@@ -147,6 +147,31 @@ impl Alert {
         repeated_alerts
     }
 
+    pub fn new<T: Into<String>>(alert_type: T) -> Alert {
+        Alert {
+            alert_type: alert_type.into(),
+            name: None,
+            source: None,
+            args: vec![],
+            next_remediation: 0
+        }
+    }
+
+    pub fn with_name<T: Into<String>>(mut self, name: T) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    pub fn with_source<T: Into<String>>(mut self, source: T) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+
+    pub fn with_args(mut self, args: Vec<String>) -> Self {
+        self.args = args;
+        self
+    }
+
     pub fn increment(mut self) -> Self {
         self.next_remediation += 1;
         self
