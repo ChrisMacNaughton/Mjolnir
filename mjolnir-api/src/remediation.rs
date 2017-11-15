@@ -14,7 +14,12 @@ mod tests {
             plugin: "Test".into(),
             target: Some("awesomehost.local".into()),
             args: vec!["body".into()],
-            alert: None,
+            alert: Some(Alert {
+                    alert_type: "Test1".into(),
+                    name: None,
+                    source: Some("test".into()),
+                    args: vec![],
+            }),
         };
 
         let request: RemediationRequest = remediation.clone().into();

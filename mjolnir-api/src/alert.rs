@@ -14,7 +14,7 @@ mod tests {
             alert_type: "Test".into(),
             name: Some("placeholder".into()),
             source: Some("test".into()),
-            args: vec![],
+            args: vec!["testarg=value".into()],
         };
 
         let request: plugin::Alert = alert.clone().into();

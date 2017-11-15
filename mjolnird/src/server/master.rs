@@ -30,6 +30,7 @@ use config::Config;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mjolnir_api::plugin;
 
     #[test]
     fn test_process_webhook() {
@@ -72,6 +73,78 @@ mod tests {
         master = master
             .load_pipelines(&config);
         assert!(master.pipelines.len() == 1);
+    }
+
+    #[test]
+    fn it_compares_agents() {
+        let a1 = Agent {
+            ip: "::".parse().unwrap(),
+            hostname: "test".into(),
+            port: 8080,
+            last_seen: Instant::now(),
+        };
+
+        let a2 = Agent {
+            ip: "::".parse().unwrap(),
+            hostname: "test".into(),
+            port: 8080,
+            last_seen: Instant::now() + Duration::from_secs(100),
+        };
+
+        assert_eq!(a1, a2);
+
+        let a3 = Agent {
+            ip: "127.0.0.1".parse().unwrap(),
+            hostname: "test".into(),
+            port: 8080,
+            last_seen: Instant::now(),
+        };
+
+        assert_ne!(a1, a3);
+    }
+
+    #[test]
+    fn it_messages_self() {
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--bind=192.168.0.101:11011",
+            "--config=../examples/configs",
+            // "--plugins=/usr/local/share",
+            "--ip=127.0.0.1",
+            "master",
+        ]);
+        let config = Config::from_args(args);
+        let (master, receiver) = Master::new(config);
+
+        let result = RemediationResult {
+            result: Ok(()),
+            alerts: vec![
+                Alert {
+                    alert_type: "Test".into(),
+                    name: Some("placeholder".into()),
+                    source: Some("test".into()),
+                    args: vec!["testarg=value".into()],
+                }],
+        };
+
+        let plugin_result: plugin::RemediationResult = result.clone().into();
+
+        let bytes: String = String::from_utf8_lossy(&plugin_result.write_to_bytes().unwrap()).into_owned();
+
+        master.handle_webhook(bytes);
+
+        let action = receiver.try_recv().unwrap();
+        match action {
+            MasterAction::Alert(alert) => {
+                assert_eq!(alert, Alert {
+                    alert_type: "Test".into(),
+                    name: Some("placeholder".into()),
+                    source: Some("test".into()),
+                    args: vec!["testarg=value".into()],
+                });
+            },
+            _ => unreachable!()
+        }
     }
 }
 

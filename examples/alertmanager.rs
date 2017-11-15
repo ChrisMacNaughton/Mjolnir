@@ -11,10 +11,8 @@ use std::env;
 use std::process;
 use std::io::{self, Write};
 
-use serde_json::Error;
-
-use mjolnir_api::{Alert, Message, RepeatedField, RemediationResult, Remediation};
-use mjolnir_api::plugin::{Discover, RemediationRequest};
+use mjolnir_api::{Alert, Message, RemediationResult, Remediation};
+use mjolnir_api::plugin::{Discover};
 
 // What does your plugin look like?
 
