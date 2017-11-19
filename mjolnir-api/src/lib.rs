@@ -1,4 +1,8 @@
 extern crate protobuf;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate toml;
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

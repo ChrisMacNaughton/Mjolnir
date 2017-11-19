@@ -1,6 +1,0 @@
-pipelines:
-- alert:
-    type: alertmanager
-    name: full-disk
-  actions:
-    - type: clean_disk

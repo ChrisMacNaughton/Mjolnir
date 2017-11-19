@@ -1,0 +1,18 @@
+
+[mjolnir]
+  config_path = "../examples/configs"
+  masters = ["127.0.1.1:11011:12011"]
+  my_id = 0
+  plugin_path = "../target/debug/examples"
+
+[[pipelines]]
+
+  [[pipelines.actions]]
+    plugin = "clean_disk"
+
+#   [[pipelines.actions]]
+#     plugin = "alert"
+
+  [pipelines.trigger]
+    type = "alertmanager"
+    name = "full-disk"

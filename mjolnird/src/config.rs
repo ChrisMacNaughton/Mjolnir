@@ -1,80 +1,85 @@
-use std::net::{IpAddr, SocketAddr};
+use std::fs::File;
+use std::io::Read;
+use std::net::{IpAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{App, Arg, ArgMatches, SubCommand};
+use toml;
 use xdg;
+
+use mjolnir::Pipeline;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn it_builds_a_default_master_config() {
-        let args = Config::matches().get_matches_from(vec!["mjolnird", "--ip=127.0.0.1", "master"]);
-        let config = Config::from_args(args);
-        assert_eq!(config.mode, Mode::Master);
-        assert_eq!(config.bind_address, "0.0.0.0:11011".parse().unwrap());
-    }
+    // #[test]
+    // fn it_builds_a_default_master_config() {
+    //     let args = Config::matches().get_matches_from(vec!["mjolnird", "--ip=127.0.0.1", "master"]);
+    //     let config = Config::from_args(args);
+    //     assert_eq!(config.mode, Mode::Master);
+    //     assert_eq!(config.bind_address, "0.0.0.0:11011".parse().unwrap());
+    // }
 
-    #[test]
-    fn it_builds_a_master_config() {
-        let args = Config::matches().get_matches_from(vec![
-            "mjolnird",
-            "--ip=127.0.0.1",
-            "--bind=192.168.0.101:11011",
-            "master",
-        ]);
-        let config = Config::from_args(args);
-        assert_eq!(config.mode, Mode::Master);
-        assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
-    }
+    // #[test]
+    // fn it_builds_a_master_config() {
+    //     let args = Config::matches().get_matches_from(vec![
+    //         "mjolnird",
+    //         "--ip=127.0.0.1",
+    //         "--bind=192.168.0.101:11011",
+    //         "master",
+    //     ]);
+    //     let config = Config::from_args(args);
+    //     assert_eq!(config.mode, Mode::Master);
+    //     assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
+    // }
 
-    #[test]
-    fn it_builds_a_master_config_with_plugin_path() {
-        let args = Config::matches().get_matches_from(vec![
-            "mjolnird",
-            "--bind=192.168.0.101:11011",
-            "--plugins=/usr/local/share",
-            "--ip=127.0.0.1",
-            "master",
-        ]);
-        let config = Config::from_args(args);
-        assert_eq!(config.mode, Mode::Master);
-        assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
-        assert_eq!(config.plugin_path, PathBuf::from("/usr/local/share"));
+    // #[test]
+    // fn it_builds_a_master_config_with_plugin_path() {
+    //     let args = Config::matches().get_matches_from(vec![
+    //         "mjolnird",
+    //         "--bind=192.168.0.101:11011",
+    //         "--plugins=/usr/local/share",
+    //         "--ip=127.0.0.1",
+    //         "master",
+    //     ]);
+    //     let config = Config::from_args(args);
+    //     assert_eq!(config.mode, Mode::Master);
+    //     assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
+    //     assert_eq!(config.plugin_path, PathBuf::from("/usr/local/share"));
 
-    }
+    // }
 
-    #[test]
-    fn it_builds_a_default_agent_config() {
-        let args = Config::matches().get_matches_from(vec![
-            "mjolnird",
-            "--ip=127.0.0.1",
-            "agent",
-            "--master=192.168.0.100:11011",
-        ]);
-        let config = Config::from_args(args);
-        assert_eq!(
-            config.mode,
-            Mode::Agent(vec!["192.168.0.100:11011".parse().unwrap()])
-        );
-    }
+    // #[test]
+    // fn it_builds_a_default_agent_config() {
+    //     let args = Config::matches().get_matches_from(vec![
+    //         "mjolnird",
+    //         "--ip=127.0.0.1",
+    //         "agent",
+    //         "--master=192.168.0.100:11011",
+    //     ]);
+    //     let config = Config::from_args(args);
+    //     assert_eq!(
+    //         config.mode,
+    //         Mode::Agent(vec!["192.168.0.100:11011".parse().unwrap()])
+    //     );
+    // }
 
-    #[test]
-    fn it_builds_an_agent_config() {
-        let args = Config::matches().get_matches_from(vec![
-            "mjolnird",
-            "--ip=127.0.0.1",
-            "agent",
-            "--master=192.168.0.100:11011",
-        ]);
-        let config = Config::from_args(args);
-        assert_eq!(
-            config.mode,
-            Mode::Agent(vec!["192.168.0.100:11011".parse().unwrap()])
-        );
-    }
+    // #[test]
+    // fn it_builds_an_agent_config() {
+    //     let args = Config::matches().get_matches_from(vec![
+    //         "mjolnird",
+    //         "--ip=127.0.0.1",
+    //         "agent",
+    //         "--master=192.168.0.100:11011",
+    //     ]);
+    //     let config = Config::from_args(args);
+    //     assert_eq!(
+    //         config.mode,
+    //         Mode::Agent(vec!["192.168.0.100:11011".parse().unwrap()])
+    //     );
+    // }
 
     #[test]
     fn it_can_parse_a_master_with_defaults() {
@@ -147,15 +152,30 @@ mod tests {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+struct Root {
+    mjolnir: ConfigFile,
+    pipelines: Vec<Pipeline>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct ConfigFile {
+    masters: Vec<String>,
+    plugin_path: Option<PathBuf>,
+    config_path: Option<PathBuf>,
+    my_id: usize,
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub bind_address: SocketAddr,
-    pub my_ip: IpAddr,
+    pub masters:Vec<Master>,
+    pub bind_ip: IpAddr,
+    pub http_port: u16,
     pub zmq_port: u16,
-    pub zmq_address: String,
     pub mode: Mode,
     pub plugin_path: PathBuf,
     pub config_path: PathBuf,
+    pub pipelines: Vec<Pipeline>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -209,9 +229,9 @@ impl FromStr for Master {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Mode {
-    Agent(Vec<Master>),
+    Agent,
     Master,
 }
 
@@ -221,62 +241,30 @@ impl<'a, 'b> Config {
             .version(crate_version!())
             .author(crate_authors!())
             .arg(
-                Arg::with_name("bind")
-                    .help("What address:port to bind to for http")
-                    .long("bind")
-                    .short("b")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("zmq")
-                    .help("What address:port to bind to for zeromq")
-                    .long("zmq")
-                    .short("z")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("config path")
-                    .help("Path to save configuration in")
+                Arg::with_name("config")
+                    .help("What is the path to my config file")
                     .long("config")
                     .short("c")
                     .takes_value(true),
             )
             .arg(
-                Arg::with_name("plugins")
-                    .help("Path to load plugins from")
-                    .long("plugins")
-                    .short("p")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("my_ip")
-                    .help("The IP that another server can reach me on")
-                    .long("ip")
-                    .short("i")
-                    .required(true)
-                    .takes_value(true),
+                Arg::with_name("debug")
+                    .help("How verbose to log at")
+                    .long("debug")
+                    .short("d")
+                    .multiple(true)
             )
             .subcommand(
                 SubCommand::with_name("agent")
                     .help("THe machine agent that runs on every machine")
-                    .arg(
-                        Arg::with_name("master")
-                            .help(
-                                "IP Address[es] of the master, in the format
-                                  x.x.x.x:HTTP_PORT:ZMQ_PORT. If either of the
-                                  ports are empty (x.x.x.x::ZMQ_PORT), then the defaults
-                                  will be used. At a minimum, the IP address is required",
-                            )
-                            .long("master")
-                            .short("m")
-                            .required(true)
-                            .takes_value(true)
-                            .multiple(true),
-                    ),
             )
-            .subcommand(SubCommand::with_name("master").help(
-                "The daemon that controls everything",
-            ))
+            .subcommand(SubCommand::with_name("master")
+                .help("The daemon that controls everything")
+            )
+    }
+
+    pub fn zmq_address(&self) -> String {
+        format!("{}:{}", self.bind_ip, self.zmq_port)
     }
 
     pub fn get_config() -> Config {
@@ -286,40 +274,63 @@ impl<'a, 'b> Config {
     pub fn from_args(matches: ArgMatches) -> Config {
         let mode = match matches.subcommand() {
             ("master", Some(_master_matches)) => Mode::Master,
-            ("agent", Some(agent_matches)) => {
-                // This unwrap is safe because we declare masters as required
-                let masters = agent_matches
-                    .values_of("master")
-                    .unwrap()
-                    .map(|ip| {
-                        ip.parse().expect(
-                            &format!("{} is an invalid address", ip)[..],
-                        )
-                    })
-                    .collect();
-                Mode::Agent(masters)
-            }
+            ("agent", Some(_agent_matches)) => Mode::Agent,
             (_, _) => unreachable!(),
         };
 
-        // only relevant for the master
-        let address = matches
-            .value_of("bind")
-            .unwrap_or("0.0.0.0:11011")
-            .parse()
-            .expect("You provided an invalid bind address");
+        let path: PathBuf = {
+            if let Some(p) = matches.value_of("config") {
+                PathBuf::from(p)
+            } else {
+                let mut p = xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
+                    |xdg| {
+                        xdg.create_data_directory("").ok()
+                    },
+                ).expect("Couldn't determine plugin path, please specify one");
 
-        let zmq_address = format!(
-            "tcp://{}",
-            matches.value_of("bind").unwrap_or_else(|| match mode {
-                Mode::Master => "0.0.0.0:12011",
-                Mode::Agent(_) => "0.0.0.0:12012",
-            })
-        );
+                p.push("config.toml");
+                p
+            }
+        };
 
-        let zmq_port = zmq_address.split(":").last().unwrap().parse().unwrap();
+        println!("Trying to load config from {}", path.display());
 
-        let path: PathBuf = if let Some(p) = matches.value_of("plugins") {
+        let config_raw = match File::open(path) {
+            Ok(mut f) => {
+                let mut s = String::new();
+                let _ = f.read_to_string(&mut s);
+                s
+            }
+            Err(e) => {
+                panic!("Err: {:?}", e);
+            }
+        };
+
+        let root: Root = match toml::from_str(&config_raw) {
+            Ok(a) => a,
+            Err(e) => panic!("Couldn't parse your config: {:?}", e),
+        };
+
+        let config_file = root.mjolnir;
+
+        // // only relevant for the master
+        // let address = matches
+        //     .value_of("bind")
+        //     .unwrap_or("0.0.0.0:11011")
+        //     .parse()
+        //     .expect("You provided an invalid bind address");
+
+        // let zmq_address = format!(
+        //     "tcp://{}",
+        //     matches.value_of("bind").unwrap_or_else(|| match mode {
+        //         Mode::Master => "0.0.0.0:12011",
+        //         Mode::Agent(_) => "0.0.0.0:12012",
+        //     })
+        // );
+
+        // let zmq_port = zmq_address.split(":").last().unwrap().parse().unwrap();
+
+        let plugin_path: PathBuf = if let Some(p) = config_file.plugin_path {
             Some(PathBuf::from(p))
         } else {
             xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
@@ -328,8 +339,8 @@ impl<'a, 'b> Config {
                 },
             )
         }.expect("Couldn't determine plugin path, please specify one");
-        // println!("XDG_DATA_DIRS: {:?}", path);
-        let config_path: PathBuf = if let Some(p) = matches.value_of("config path") {
+        // // println!("XDG_DATA_DIRS: {:?}", path);
+        let config_path: PathBuf = if let Some(p) = config_file.config_path {
             Some(PathBuf::from(p))
         } else {
             xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
@@ -338,17 +349,36 @@ impl<'a, 'b> Config {
                 },
             )
         }.expect("Couldn't determine config path, please specify one");
-        let my_ip = matches.value_of("my_ip").unwrap().parse().expect(
-            "Couldn't understand my IP as an IP address",
-        );
+        // let my_ip = matches.value_of("my_ip").unwrap().parse().expect(
+        //     "Couldn't understand my IP as an IP address",
+        // );
+        // Config {
+        //     bind_address: address,
+        //     zmq_address: zmq_address,
+        //     my_ip: my_ip,
+        //     mode: mode,
+        //     plugin_path: path,
+        //     config_path: config_path,
+        //     zmq_port: zmq_port,
+        // }
+
+        let me = config_file.masters.get(config_file.my_id).expect(&format!("{} doesn't seem to be a valid entry in masters", config_file.my_id));
+        let me: Master = Master::from_str(&me).expect("Couldn't parse my IP address");
         Config {
-            bind_address: address,
-            zmq_address: zmq_address,
-            my_ip: my_ip,
             mode: mode,
-            plugin_path: path,
+            masters: config_file.masters.iter().map(|a| Master::from_str(a).expect(&format!("Couldn't parse {} into IP:HTTP_PORT:ZMQ_PORT", a))).collect(),
+            bind_ip: IpAddr::from_str(&me.ip).expect(&format!("Couldn't parse IP from {}", me.ip)),
+            http_port: match mode {
+                Mode::Master => me.http_port,
+                Mode::Agent => me.http_port + 1,
+            },
+            zmq_port: match mode {
+                Mode::Master => me.zmq_port,
+                Mode::Agent => me.zmq_port + 1,
+            },
+            plugin_path: plugin_path,
             config_path: config_path,
-            zmq_port: zmq_port,
+            pipelines: root.pipelines,
         }
     }
 }

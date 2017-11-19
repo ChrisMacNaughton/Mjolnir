@@ -62,13 +62,19 @@ mod tests {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Remediation {
     pub plugin: String,
     pub target: Option<String>,
+    #[serde(default="empty")]
     pub args: Vec<String>,
     pub alert: Option<Alert>,
 }
+
+fn empty() -> Vec<String> {
+    vec![]
+}
+
 
 impl<'a> From<&'a RemediationRequest> for Remediation {
     fn from(remediation: &RemediationRequest) -> Remediation {

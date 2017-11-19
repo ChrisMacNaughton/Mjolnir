@@ -6,6 +6,8 @@ use RepeatedField;
 mod tests {
     use super::*;
 
+    use toml;
+
     pub use protobuf::core::{Message, parse_from_bytes};
 
     #[test]
@@ -55,19 +57,52 @@ mod tests {
         let repeated = Alert::vec_to_repeated(&r);
         assert_eq!(r[0], repeated.first().unwrap().into());
     }
+
+    #[test]
+    fn it_deserializes_alert_from_toml() {
+        let s = r#"
+type = "alertmanager"
+name = "full-disk""#;
+
+        let alert: Alert = toml::from_str(s).unwrap();
+        println!("Alert: {:?}", alert);
+    }
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq)]
 pub struct Alert {
     /// In config, this is referred to as type
+    #[serde(rename="type")]
     pub alert_type: String,
     pub name: Option<String>,
     pub source: Option<String>,
+    #[serde(default="empty")]
     pub args: Vec<String>,
     /// Master managed index into pipeline
+    #[serde(default="zero")]
     pub next_remediation: u64,
 }
 
+fn empty() -> Vec<String> {
+    vec![]
+}
+
+#[inline(always)]
+fn zero() -> u64 {
+    0
+}
+
+impl Default for Alert {
+    fn default() -> Alert {
+        Alert {
+            alert_type: String::new(),
+            name: None,
+            source: None,
+            args: vec![],
+            next_remediation: 0,
+        }
+    }
+}
 impl PartialEq for Alert {
     fn eq(&self, other: &Alert) -> bool {
         self.alert_type == other.alert_type && self.name == other.name

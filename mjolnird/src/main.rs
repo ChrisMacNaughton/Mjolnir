@@ -5,7 +5,11 @@ extern crate hostname;
 extern crate hyper;
 extern crate protobuf;
 extern crate reqwest;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate tokio_core;
+extern crate toml;
 extern crate xdg;
 extern crate yaml_rust;
 extern crate zmq;
