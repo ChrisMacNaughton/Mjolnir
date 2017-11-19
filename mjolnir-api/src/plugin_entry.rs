@@ -40,21 +40,21 @@ mod tests {
                     alert:  None,
                 },
             ],
-            path: PathBuf::from("/tmp/test"),
+            path: PathBuf::from("/tmp/test-name"),
         };
 
         let request: plugin::Discover = plugin.clone().into();
 
         let bytes = request.write_to_bytes().expect("Couldn't turn the plugin into bytes");
         let mut plugin2: PluginEntry = parse_from_bytes::<plugin::Discover>(&bytes).unwrap().into();
-        plugin2 = plugin2.with_path(PathBuf::from("/tmp/test"));
+        plugin2 = plugin2.with_path(PathBuf::from("/tmp/test-name"));
         assert_eq!(plugin, plugin2);
     }
 
     #[test]
     fn it_fails_parsing_gracefully() {
         let buff = [12];
-        let plugin = PluginEntry::try_from(&buff, &PathBuf::from("/tmp"));
+        let plugin = PluginEntry::try_from(&buff, &PathBuf::from("/tmp/test"));
         assert!(plugin.is_err());
     }
 
@@ -133,7 +133,7 @@ mod tests {
             40,
             1,
         ];
-        let plugin = PluginEntry::try_from(&buff, &PathBuf::from("/tmp")).unwrap();
+        let plugin = PluginEntry::try_from(&buff, &PathBuf::from("/tmp/alertmanager")).unwrap();
         println!("Plugin: {:?}", plugin);
         assert_eq!(plugin.name, "alertmanager");
         assert!(plugin.webhook);
@@ -166,6 +166,7 @@ impl PluginEntry {
 
     fn with_path(mut self, path: PathBuf) -> PluginEntry {
         self.path = path;
+        self.name = self.path.file_name().unwrap().to_string_lossy().into_owned();
         self
     }
 }
