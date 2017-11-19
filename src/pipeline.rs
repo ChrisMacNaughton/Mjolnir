@@ -22,24 +22,6 @@ plugin = "alert""#;
         let pipeline: Pipeline = toml::from_str(s).unwrap();
         println!("Pipeline: {:?}", pipeline);
     }
-
-    #[test]
-    fn it_parses_a_vec_pipeline_from_toml() {
-        let s = r#"
-[[pipelines]]
-
-  [[pipelines.actions]]
-    plugin = "clean_disk"
-
-  [[pipelines.actions]]
-    plugin = "alert"
-
-  [pipelines.trigger]
-    type = "alertmanager"
-    name = "full-disk""#;
-        let pipeline: Vec<Pipeline> = toml::from_str(s).unwrap();
-        println!("Pipeline: {:?}", pipeline);
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

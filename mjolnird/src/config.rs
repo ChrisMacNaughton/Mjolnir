@@ -14,73 +14,6 @@ use mjolnir::Pipeline;
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn it_builds_a_default_master_config() {
-    //     let args = Config::matches().get_matches_from(vec!["mjolnird", "--ip=127.0.0.1", "master"]);
-    //     let config = Config::from_args(args);
-    //     assert_eq!(config.mode, Mode::Master);
-    //     assert_eq!(config.bind_address, "0.0.0.0:11011".parse().unwrap());
-    // }
-
-    // #[test]
-    // fn it_builds_a_master_config() {
-    //     let args = Config::matches().get_matches_from(vec![
-    //         "mjolnird",
-    //         "--ip=127.0.0.1",
-    //         "--bind=192.168.0.101:11011",
-    //         "master",
-    //     ]);
-    //     let config = Config::from_args(args);
-    //     assert_eq!(config.mode, Mode::Master);
-    //     assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
-    // }
-
-    // #[test]
-    // fn it_builds_a_master_config_with_plugin_path() {
-    //     let args = Config::matches().get_matches_from(vec![
-    //         "mjolnird",
-    //         "--bind=192.168.0.101:11011",
-    //         "--plugins=/usr/local/share",
-    //         "--ip=127.0.0.1",
-    //         "master",
-    //     ]);
-    //     let config = Config::from_args(args);
-    //     assert_eq!(config.mode, Mode::Master);
-    //     assert_eq!(config.bind_address, "192.168.0.101:11011".parse().unwrap());
-    //     assert_eq!(config.plugin_path, PathBuf::from("/usr/local/share"));
-
-    // }
-
-    // #[test]
-    // fn it_builds_a_default_agent_config() {
-    //     let args = Config::matches().get_matches_from(vec![
-    //         "mjolnird",
-    //         "--ip=127.0.0.1",
-    //         "agent",
-    //         "--master=192.168.0.100:11011",
-    //     ]);
-    //     let config = Config::from_args(args);
-    //     assert_eq!(
-    //         config.mode,
-    //         Mode::Agent(vec!["192.168.0.100:11011".parse().unwrap()])
-    //     );
-    // }
-
-    // #[test]
-    // fn it_builds_an_agent_config() {
-    //     let args = Config::matches().get_matches_from(vec![
-    //         "mjolnird",
-    //         "--ip=127.0.0.1",
-    //         "agent",
-    //         "--master=192.168.0.100:11011",
-    //     ]);
-    //     let config = Config::from_args(args);
-    //     assert_eq!(
-    //         config.mode,
-    //         Mode::Agent(vec!["192.168.0.100:11011".parse().unwrap()])
-    //     );
-    // }
-
     #[test]
     fn it_can_parse_a_master_with_defaults() {
         let input = "127.0.0.1";
@@ -163,7 +96,8 @@ struct ConfigFile {
     masters: Vec<String>,
     plugin_path: Option<PathBuf>,
     config_path: Option<PathBuf>,
-    my_id: usize,
+    master: Option<String>,
+    agent: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -313,23 +247,6 @@ impl<'a, 'b> Config {
 
         let config_file = root.mjolnir;
 
-        // // only relevant for the master
-        // let address = matches
-        //     .value_of("bind")
-        //     .unwrap_or("0.0.0.0:11011")
-        //     .parse()
-        //     .expect("You provided an invalid bind address");
-
-        // let zmq_address = format!(
-        //     "tcp://{}",
-        //     matches.value_of("bind").unwrap_or_else(|| match mode {
-        //         Mode::Master => "0.0.0.0:12011",
-        //         Mode::Agent(_) => "0.0.0.0:12012",
-        //     })
-        // );
-
-        // let zmq_port = zmq_address.split(":").last().unwrap().parse().unwrap();
-
         let plugin_path: PathBuf = if let Some(p) = config_file.plugin_path {
             Some(PathBuf::from(p))
         } else {
@@ -349,21 +266,31 @@ impl<'a, 'b> Config {
                 },
             )
         }.expect("Couldn't determine config path, please specify one");
-        // let my_ip = matches.value_of("my_ip").unwrap().parse().expect(
-        //     "Couldn't understand my IP as an IP address",
-        // );
-        // Config {
-        //     bind_address: address,
-        //     zmq_address: zmq_address,
-        //     my_ip: my_ip,
-        //     mode: mode,
-        //     plugin_path: path,
-        //     config_path: config_path,
-        //     zmq_port: zmq_port,
-        // }
 
-        let me = config_file.masters.get(config_file.my_id).expect(&format!("{} doesn't seem to be a valid entry in masters", config_file.my_id));
-        let me: Master = Master::from_str(&me).expect("Couldn't parse my IP address");
+        let me = match mode {
+            Mode::Master => {
+                if let Some(me) = config_file.master {
+                    Master::from_str(&me).expect(&format!("Couldn't parse my details from {}", me))
+                } else {
+                    Master {
+                        ip: "0.0.0.0".into(),
+                        http_port: 11011,
+                        zmq_port: 12011,
+                    }
+                }
+            },
+            Mode::Agent => {
+                if let Some(me) = config_file.agent {
+                    Master::from_str(&me).expect(&format!("Couldn't parse my details from {}", me))
+                } else {
+                    Master {
+                        ip: "0.0.0.0".into(),
+                        http_port: 11012,
+                        zmq_port: 12012,
+                    }
+                }
+            },
+        };
         Config {
             mode: mode,
             masters: config_file.masters.iter().map(|a| Master::from_str(a).expect(&format!("Couldn't parse {} into IP:HTTP_PORT:ZMQ_PORT", a))).collect(),
