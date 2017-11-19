@@ -1,6 +1,7 @@
 
 [mjolnir]
   config_path = "../examples/configs"
+  # Masters have the format $IP:HTTP_PORT:$ZMQ_PORT
   masters = ["127.0.1.1:11011:12011"]
   my_id = 0
   plugin_path = "../target/debug/examples"
