@@ -106,12 +106,25 @@ mod tests {
         let config = Config::from_args(args);
         assert_eq!(config.zmq_address(), "0.0.0.0:12011");
     }
+
+    #[test]
+    fn empty_vec() {
+        let empty_vec: Vec<Pipeline> = vec![];
+        assert_eq!(empty_vec, empty());
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct Root {
     mjolnir: ConfigFile,
+    #[serde(default="empty")]
     pipelines: Vec<Pipeline>,
+}
+
+
+
+fn empty() -> Vec<Pipeline> {
+    vec![]
 }
 
 #[derive(Clone, Debug, Deserialize)]

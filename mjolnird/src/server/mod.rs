@@ -16,7 +16,40 @@ use mjolnir_api::{Operation, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use super::*;
+    use std::fs::{create_dir_all, remove_dir_all};
+    use std::path::PathBuf;
+
+    #[test]
+    fn it_sets_up_crypto() {
+        let config_path = PathBuf::from("/tmp/mjolnir");
+
+        let _ = remove_dir_all(&config_path);
+        let _ = create_dir_all(&config_path);
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--config=../examples/configs/mjolnir.toml",
+            "master",
+        ]);
+        let mut config = Config::from_args(args);
+        config.config_path = config_path;
+
+        let context = zmq::Context::new();
+        let mut responder = context.socket(zmq::REP).unwrap();
+
+        let r = setup_curve(&mut responder, &config);
+        assert!(r.is_ok());
+
+        let key = server_pubkey(&config);
+
+        let context = zmq::Context::new();
+        let mut responder = context.socket(zmq::REP).unwrap();
+
+        let r = setup_curve(&mut responder, &config);
+        assert!(r.is_ok());
+
+        assert_eq!(key, server_pubkey(&config));
+    }
 
 }
 

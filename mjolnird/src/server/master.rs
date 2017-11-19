@@ -68,7 +68,7 @@ mod tests {
             path: PathBuf::from("/bin/echo"),
         });
         master = master
-            .load_pipelines(&config);
+            .load_pipelines();
         assert!(master.pipelines.len() == 1);
     }
 
@@ -88,7 +88,7 @@ mod tests {
             last_seen: Instant::now() + Duration::from_secs(100),
         };
 
-        assert_eq!(a1, a2);
+        assert_eq!(a1.clone(), a2);
 
         let a3 = Agent {
             ip: "127.0.0.1".parse().unwrap(),
@@ -104,11 +104,15 @@ mod tests {
     fn it_messages_self() {
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--config=../examples/configs/mjolnir.toml",
+            "--config=../examples/configs/empty.toml",
             "master",
         ]);
         let config = Config::from_args(args);
-        let (master, receiver) = Master::new(config);
+        let (mut master, receiver) = Master::new(config);
+
+
+        master = master.load_plugins()
+            .load_pipelines();
 
         let result = RemediationResult {
             result: Ok(()),
@@ -305,7 +309,7 @@ impl Master {
         let (mut master, receiver) = Master::new(config.clone());
         master = master.with_plugin_path(config.plugin_path.clone())
             .load_plugins()
-            .load_pipelines(&config);
+            .load_pipelines();
 
         let http_config = config.clone();
 
@@ -543,15 +547,17 @@ impl Master {
         self
     }
 
-    fn load_pipelines(mut self, config: &Config) -> Self {
-        let pipelines = &config.pipelines;
+    fn load_pipelines(mut self) -> Self {
+        self.pipelines = {
+            let pipelines = &self.config.pipelines;
 
-        match self.validate_pipelines(&pipelines) {
-            Ok(()) => {},
-            Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
-        }
+            match self.validate_pipelines(&pipelines) {
+                Ok(()) => {},
+                Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
+            }
 
-        self.pipelines = pipelines.clone();
+            self.config.pipelines.clone()
+        };
         self
     }
 
