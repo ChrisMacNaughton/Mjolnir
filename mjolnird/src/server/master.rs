@@ -1,7 +1,7 @@
 use std::time::{Instant, Duration};
 use std::fs::{File, read_dir};
 use std::io::{self, Read};
-use std::net::IpAddr;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -24,7 +24,7 @@ use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
 use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult, Remediation};
-use server::{zmq_listen, connect, server_pubkey, load_pipeline};
+use server::{zmq_listen, connect, server_pubkey};
 use config::Config;
 
 #[cfg(test)]
@@ -52,10 +52,7 @@ mod tests {
     fn it_validates_pipelines() {
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--bind=192.168.0.101:11011",
-            "--config=../examples/configs",
-            // "--plugins=/usr/local/share",
-            "--ip=127.0.0.1",
+            "--config=../examples/configs/mjolnir.toml",
             "master",
         ]);
         let config = Config::from_args(args);
@@ -71,7 +68,7 @@ mod tests {
             path: PathBuf::from("/bin/echo"),
         });
         master = master
-            .load_pipelines(&config);
+            .load_pipelines();
         assert!(master.pipelines.len() == 1);
     }
 
@@ -91,7 +88,7 @@ mod tests {
             last_seen: Instant::now() + Duration::from_secs(100),
         };
 
-        assert_eq!(a1, a2);
+        assert_eq!(a1.clone(), a2);
 
         let a3 = Agent {
             ip: "127.0.0.1".parse().unwrap(),
@@ -107,14 +104,15 @@ mod tests {
     fn it_messages_self() {
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--bind=192.168.0.101:11011",
-            "--config=../examples/configs",
-            // "--plugins=/usr/local/share",
-            "--ip=127.0.0.1",
+            "--config=../examples/configs/empty.toml",
             "master",
         ]);
         let config = Config::from_args(args);
-        let (master, receiver) = Master::new(config);
+        let (mut master, receiver) = Master::new(config);
+
+
+        master = master.load_plugins()
+            .load_pipelines();
 
         let result = RemediationResult {
             result: Ok(()),
@@ -311,7 +309,7 @@ impl Master {
         let (mut master, receiver) = Master::new(config.clone());
         master = master.with_plugin_path(config.plugin_path.clone())
             .load_plugins()
-            .load_pipelines(&config);
+            .load_pipelines();
 
         let http_config = config.clone();
 
@@ -319,7 +317,7 @@ impl Master {
         let closure_master = master.clone();
         thread::spawn(move || {
             let master_server = move || Ok(closure_master.clone());
-            let server = Http::new().bind(&http_config.bind_address, master_server)?;
+            let server = Http::new().bind(&(http_config.bind_ip, http_config.http_port).to_socket_addrs().unwrap().next().unwrap(), master_server)?;
             server.run()
         });
         let background_agents = master.agents.clone();
@@ -388,6 +386,8 @@ impl Master {
                             println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
                         }
                     }
+                } else {
+                    println!("Failed to get lock");
                 }
             } else {
                 println!("PENDING : Handle alerts with no target");
@@ -398,12 +398,13 @@ impl Master {
     }
 
     fn setup_zmq(&self, config: &Config) -> ZmqResult<()> {
-        let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
+        // let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
+        let agents = self.agents.clone();
         let sender = self.sender.clone();
         zmq_listen(
             config,
             Box::new(move |operation, responder| {
-                // let agents_arc = agents.clone();
+                let agents = agents.clone();
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
@@ -416,7 +417,6 @@ impl Master {
                     }
                     OpType::REGISTER => {
                         ack(responder)?;
-                        let mut agents = agents.lock().unwrap();
                         let register: Register = operation.get_register().clone().into();
                         let agent = Agent {
                             ip: register.ip,
@@ -426,18 +426,21 @@ impl Master {
                         };
                         let mut updated = false;
                         {
-                            let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
-                            if let Some(known_agent) = known {
-                                known_agent.last_seen = agent.last_seen;
-                                updated = true;
+                            let mut agents = agents.lock().expect("Couldn't lock agents");
+                            {
+                                let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
+                                if let Some(known_agent) = known {
+                                    known_agent.last_seen = agent.last_seen;
+                                    updated = true;
+                                }
                             }
-                        }
-                        if !updated {
-                            println!("Adding a new agent: {:?}!", agent);
-                            agents.push(agent);
-                        }
+                            if !updated {
+                                println!("Adding a new agent: {:?}!", agent);
+                                agents.push(agent);
+                            }
 
-                        println!("#{} Agents", agents.len());
+                            println!("#{} Agents", agents.len());
+                        }
                     }
                     OpType::ALERT => {
                         ack(responder)?;
@@ -544,15 +547,17 @@ impl Master {
         self
     }
 
-    fn load_pipelines(mut self, config: &Config) -> Self {
-        let pipelines = load_pipeline(config);
+    fn load_pipelines(mut self) -> Self {
+        self.pipelines = {
+            let pipelines = &self.config.pipelines;
 
-        match self.validate_pipelines(&pipelines) {
-            Ok(()) => {},
-            Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
-        }
+            match self.validate_pipelines(&pipelines) {
+                Ok(()) => {},
+                Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
+            }
 
-        self.pipelines = pipelines;
+            self.config.pipelines.clone()
+        };
         self
     }
 

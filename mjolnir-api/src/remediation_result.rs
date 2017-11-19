@@ -22,6 +22,27 @@ mod tests {
         let result2 = r2.into();
         assert_eq!(result, result2);
     }
+
+
+    #[test]
+    fn it_builds() {
+        let mut r = RemediationResult::new();
+        r = r.ok();
+        assert!(r.result.is_ok());
+        r = r.err("Error!");
+        assert!(r.result.is_err());
+        assert_eq!(r.result, Err("Error!".into()));
+
+        r = r.with_alert(Alert::default());
+        assert_eq!(r.alerts.len(), 1);
+
+        r = r.with_alerts(vec![Alert::default(), Alert::default()]);
+        assert_eq!(r.alerts.len(), 3);
+
+        let r2 = RemediationResult::from_string(&String::from_utf8_lossy(&r.clone().write_to_bytes().unwrap()).into_owned());
+
+        assert_eq!(r, r2);
+    }
 }
 
 use alert::Alert;

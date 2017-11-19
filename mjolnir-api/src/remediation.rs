@@ -60,15 +60,27 @@ mod tests {
         let repeated = Remediation::vec_to_repeated(&r);
         assert_eq!(r[0], repeated.first().unwrap().into());
     }
+
+    #[test]
+    fn empty_vec() {
+        let empty_vec: Vec<String> = vec![];
+        assert_eq!(empty_vec, empty());
+    }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Remediation {
     pub plugin: String,
     pub target: Option<String>,
+    #[serde(default="empty")]
     pub args: Vec<String>,
     pub alert: Option<Alert>,
 }
+
+fn empty() -> Vec<String> {
+    vec![]
+}
+
 
 impl<'a> From<&'a RemediationRequest> for Remediation {
     fn from(remediation: &RemediationRequest) -> Remediation {

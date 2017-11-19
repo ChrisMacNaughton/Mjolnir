@@ -6,7 +6,6 @@ use std::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::io;
 use std::process::Command;
-use std::sync::Arc;
 use std::time::Duration;
 use std::thread;
 
@@ -32,17 +31,16 @@ use server::{connect, server_pubkey, zmq_listen};
 
 #[derive(Clone)]
 pub struct Agent {
-    masters: Arc<Vec<Master>>,
+    // masters: Arc<Vec<Master>>,
     pubkey: String,
     config: Config,
 }
 
 impl Agent {
-    pub fn bind(config: Config, masters: Vec<Master>) -> ZmqResult<()> {
+    pub fn bind(config: Config) -> ZmqResult<()> {
 
         let background_config = config.clone();
         let agent = Agent {
-            masters: Arc::new(masters),
             pubkey: server_pubkey(&config).into(),
             config: config,
         };
@@ -50,7 +48,7 @@ impl Agent {
         let _ = fs::create_dir_all(&agent.config.plugin_path);
         let _ = agent.register();
         let ping_duration = Duration::from_millis(500);
-        let masters = agent.masters.clone();
+        let masters = agent.config.masters.clone();
         thread::spawn(move|| {
             let server_pubkey = server_pubkey(&background_config);
             loop {
@@ -81,7 +79,7 @@ impl Agent {
 
     fn listen(&self) -> ZmqResult<()> {
         let config = self.config.clone();
-        let masters = self.masters.clone();
+        let masters = config.masters.clone();
         let server_pubkey = self.pubkey.clone();
         zmq_listen(
             &self.config,
@@ -146,7 +144,7 @@ impl Agent {
 
     fn register(&self) -> ZmqResult<()> {
         // register with the master!
-        let master = &self.masters[0];
+        let master = &self.config.masters[0];
         let socket = match connect(&master.ip, master.zmq_port, &self.pubkey) {
             Ok(s) => s,
             Err(e) => {
@@ -159,7 +157,7 @@ impl Agent {
         println!("Creating  operation request");
         o.set_operation_type(OpType::REGISTER);
         let register = Register::new(
-            self.config.my_ip.clone(),
+            self.config.bind_ip.clone(),
             self.config.zmq_port,
             get_hostname().unwrap(),
         );
@@ -200,7 +198,7 @@ impl Agent {
 }
 
 
-fn remediate(remediation: Remediation, config: &Config, masters: &Arc<Vec<Master>>) -> RemediationResult {
+fn remediate(remediation: Remediation, config: &Config, masters: &Vec<Master>) -> RemediationResult {
     let plugin_path = {
         let mut plugin_path = config.plugin_path.clone();
         plugin_path.push(&remediation.plugin);
