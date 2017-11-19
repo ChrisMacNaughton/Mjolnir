@@ -1,6 +1,8 @@
 use super::proto::plugin;
 
-use RepeatedField;
+use protobuf;
+
+use {Message, RepeatedField, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {
@@ -24,6 +26,25 @@ mod tests {
 
         let bytes = request.write_to_bytes().unwrap();
         let alert2 = parse_from_bytes::<plugin::Alert>(&bytes).unwrap().into();
+        assert_eq!(alert, alert2);
+    }
+
+    #[test]
+    fn it_constructs() {
+        let mut alert = Alert::default();
+
+        alert = alert.with_arg("test1=2".into());
+        assert_eq!(alert.args, vec!["test1=2"]);
+
+        let args = vec!["test=1".into(), "test2=2".into()];
+        alert = alert.with_args(args.clone());
+        assert_eq!(alert.args, vec!["test1=2", "test=1", "test2=2"]);
+
+        assert_eq!(alert.next_remediation, 0);
+        alert = alert.increment();
+        assert_eq!(alert.next_remediation, 1);
+
+        let alert2 = Alert::from_string(&String::from_utf8_lossy(&alert.clone().write_to_bytes().unwrap()).into_owned());
         assert_eq!(alert, alert2);
     }
 
@@ -66,6 +87,18 @@ name = "full-disk""#;
 
         let alert: Alert = toml::from_str(s).unwrap();
         println!("Alert: {:?}", alert);
+    }
+
+
+    #[test]
+    fn empty_vec() {
+        let empty_vec: Vec<String> = vec![];
+        assert_eq!(empty_vec, empty());
+    }
+
+    #[test]
+    fn is_zero() {
+        assert_eq!(0, zero());
     }
 }
 
@@ -202,8 +235,8 @@ impl Alert {
         self
     }
 
-    pub fn with_args(mut self, args: Vec<String>) -> Self {
-        self.args = args;
+    pub fn with_args(mut self, mut args: Vec<String>) -> Self {
+        self.args.append(&mut args);
         self
     }
 
@@ -215,5 +248,16 @@ impl Alert {
     pub fn increment(mut self) -> Self {
         self.next_remediation += 1;
         self
+    }
+
+    pub fn write_to_bytes(self) -> Result<Vec<u8>, protobuf::ProtobufError> {
+        let plugin_result: plugin::Alert = self.into();
+
+        plugin_result.write_to_bytes()
+    }
+
+    pub fn from_string(input: &String) -> Alert {
+        let r2 = parse_from_bytes::<plugin::Alert>(input.as_bytes()).unwrap();
+        r2.into()
     }
 }

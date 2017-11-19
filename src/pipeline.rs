@@ -22,6 +22,12 @@ plugin = "alert""#;
         let pipeline: Pipeline = toml::from_str(s).unwrap();
         println!("Pipeline: {:?}", pipeline);
     }
+
+    #[test]
+    fn empty_vec() {
+        let empty_vec: Vec<Remediation> = vec![];
+        assert_eq!(empty_vec, empty());
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

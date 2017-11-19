@@ -15,6 +15,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn it_returns_err_with_bad_http_port() {
+        let input = "127.0.0.1:wrong:12011";
+        assert!(input.parse::<Master>().is_err());
+    }
+
+    #[test]
+    fn it_returns_err_with_bad_zmq_port() {
+        let input = "127.0.0.1:11011:wrong";
+        assert!(input.parse::<Master>().is_err());
+    }
+
+    #[test]
     fn it_can_parse_a_master_with_defaults() {
         let input = "127.0.0.1";
         let master: Master = input.parse().unwrap();
@@ -82,6 +94,17 @@ mod tests {
                 zmq_port: 9080,
             }
         );
+    }
+
+    #[test]
+    fn it_returns_zmq_address() {
+        let args = Config::matches().get_matches_from(vec![
+            "mjolnird",
+            "--config=../examples/configs/mjolnir.toml",
+            "master",
+        ]);
+        let config = Config::from_args(args);
+        assert_eq!(config.zmq_address(), "0.0.0.0:12011");
     }
 }
 

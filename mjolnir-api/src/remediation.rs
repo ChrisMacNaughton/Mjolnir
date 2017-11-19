@@ -60,6 +60,12 @@ mod tests {
         let repeated = Remediation::vec_to_repeated(&r);
         assert_eq!(r[0], repeated.first().unwrap().into());
     }
+
+    #[test]
+    fn empty_vec() {
+        let empty_vec: Vec<String> = vec![];
+        assert_eq!(empty_vec, empty());
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]

@@ -16,7 +16,7 @@ use mjolnir_api::{Operation, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
 }
 

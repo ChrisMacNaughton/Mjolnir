@@ -118,6 +118,7 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
 // You may want custom structs to handle input
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(non_snake_case)]
 struct Incoming {
     version: String,
     group_key: String,
@@ -134,6 +135,7 @@ struct Incoming {
 }
 
 #[derive(Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
 enum Status {
     resolved,
     firing,
