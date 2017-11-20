@@ -480,6 +480,11 @@ impl Master {
         >,
     > {
         match (req.method(), req.path()) {
+            (&Method::Get, "/pubkey.pem") => {
+                let mut path = self.config.key_path.clone();
+                path.push("ecpubkey.pem");
+                read_file(&path)
+            }
             (&Method::Get, _) => {
                 let path = req.path().to_string();
                 let mut parts = path.split("/").clone();
