@@ -8,6 +8,7 @@ message Register {
   required IpAddr ip = 1;
   required int32 port = 2;
   required string hostname = 3;
+  required string secret = 4;
 }
 
 enum Version {
