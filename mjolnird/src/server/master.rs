@@ -401,6 +401,7 @@ impl Master {
         // let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
         let agents = self.agents.clone();
         let sender = self.sender.clone();
+        let boxed_config = config.clone();
         zmq_listen(
             config,
             Box::new(move |operation, responder| {
@@ -416,30 +417,39 @@ impl Master {
                         responder.send_msg(msg, 0)?;
                     }
                     OpType::REGISTER => {
-                        ack(responder)?;
-                        let register: Register = operation.get_register().clone().into();
-                        let agent = Agent {
-                            ip: register.ip,
-                            hostname: register.hostname.clone(),
-                            port: register.port,
-                            last_seen: Instant::now(),
-                        };
-                        let mut updated = false;
-                        {
-                            let mut agents = agents.lock().expect("Couldn't lock agents");
+                        let register: Register = operation.get_register().into();
+                        if register.secret != boxed_config.secret {
+                            println!("Bad agent registration: {:?}", register);
+                            let mut o = Operation::new();
+                            o.set_operation_type(OpType::NACK);
+                            let encoded = o.write_to_bytes().unwrap();
+                            let msg = Message::from_slice(&encoded)?;
+                            responder.send_msg(msg, 0)?;
+                        } else {
+                            ack(responder)?;
+                            let agent = Agent {
+                                ip: register.ip,
+                                hostname: register.hostname.clone(),
+                                port: register.port,
+                                last_seen: Instant::now(),
+                            };
+                            let mut updated = false;
                             {
-                                let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
-                                if let Some(known_agent) = known {
-                                    known_agent.last_seen = agent.last_seen;
-                                    updated = true;
+                                let mut agents = agents.lock().expect("Couldn't lock agents");
+                                {
+                                    let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
+                                    if let Some(known_agent) = known {
+                                        known_agent.last_seen = agent.last_seen;
+                                        updated = true;
+                                    }
                                 }
-                            }
-                            if !updated {
-                                println!("Adding a new agent: {:?}!", agent);
-                                agents.push(agent);
-                            }
+                                if !updated {
+                                    println!("Adding a new agent: {:?}!", agent);
+                                    agents.push(agent);
+                                }
 
-                            println!("#{} Agents", agents.len());
+                                println!("#{} Agents", agents.len());
+                            }
                         }
                     }
                     OpType::ALERT => {

@@ -10,7 +10,7 @@ mod tests {
 
     #[test]
     fn it_serializes_and_deserializes() {
-        let register = Register::new("10.0.0.1".parse().unwrap(), 12011, "awesome.local");
+        let register = Register::new("10.0.0.1".parse().unwrap(), 12011, "awesome.local", "supersecret");
 
         let request: proto::agent::Register = register.clone().into();
 
@@ -21,7 +21,7 @@ mod tests {
 
     #[test]
     fn it_serializes_and_deserializes_with_ipv6() {
-        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local");
+        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local", "supersecret");
 
         let request: proto::agent::Register = register.clone().into();
 
@@ -36,14 +36,16 @@ pub struct Register {
     pub ip: IpAddr,
     pub port: u16,
     pub hostname: String,
+    pub secret: String,
 }
 
 impl Register {
-    pub fn new<T: Into<String>>(ip: IpAddr, port: u16, hostname: T) -> Register {
+    pub fn new<T: Into<String>, T2: Into<String>>(ip: IpAddr, port: u16, hostname: T, secret: T2) -> Register {
         Register {
             ip: ip,
             port: port,
             hostname: hostname.into(),
+            secret: secret.into(),
         }
     }
 }
@@ -54,16 +56,24 @@ impl Into<proto::agent::Register> for Register {
         register.set_hostname(self.hostname);
         register.set_ip(self.ip.into());
         register.set_port(self.port as i32);
+        register.set_secret(self.secret);
         register
     }
 }
 
 impl From<proto::agent::Register> for Register {
     fn from(register: proto::agent::Register) ->Register {
+        (&register).into()
+    }
+}
+
+impl<'a> From<&'a proto::agent::Register> for Register {
+    fn from(register: &proto::agent::Register) ->Register {
         Register {
             hostname: register.get_hostname().into(),
             ip: register.get_ip().clone().into(),
             port: register.get_port() as u16,
+            secret: register.get_secret().into(),
         }
     }
 }

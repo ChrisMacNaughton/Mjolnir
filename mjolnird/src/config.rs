@@ -144,11 +144,13 @@ struct ConfigFile {
     plugin_path: Option<PathBuf>,
     key_path: Option<PathBuf>,
     bind: Option<String>,
+    secret: Option<String>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub masters:Vec<Master>,
+    pub secret: String,
     pub bind_ip: IpAddr,
     pub http_port: u16,
     pub zmq_port: u16,
@@ -388,6 +390,7 @@ impl<'a, 'b> Config {
             plugin_path: plugin_path,
             key_path: key_path,
             pipelines: root.pipelines,
+            secret: config_file.secret.expect("A shared secret is required"),
         }
     }
 }

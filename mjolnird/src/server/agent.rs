@@ -160,6 +160,7 @@ impl Agent {
             self.config.bind_ip.clone(),
             self.config.zmq_port,
             get_hostname().unwrap(),
+            self.config.secret.clone(),
         );
         o.set_register(register.into());
         let encoded = o.write_to_bytes().unwrap();
@@ -182,6 +183,10 @@ impl Agent {
                 match operation.get_operation_type() {
                     OpType::ACK => {
                         println!("got our ACK!");
+                    }
+                    OpType::NACK => {
+                        println!("We supplied a bad secret");
+                        panic!("Misconfigured shared secret");
                     }
                     _ => {
                         println!("Not quite handling {:?} yet", operation);
