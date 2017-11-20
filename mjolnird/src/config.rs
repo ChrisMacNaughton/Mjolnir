@@ -131,7 +131,7 @@ fn empty() -> Vec<Pipeline> {
 struct ConfigFile {
     masters: Vec<String>,
     plugin_path: Option<PathBuf>,
-    config_path: Option<PathBuf>,
+    key_path: Option<PathBuf>,
     master: Option<String>,
     agent: Option<String>,
 }
@@ -144,7 +144,7 @@ pub struct Config {
     pub zmq_port: u16,
     pub mode: Mode,
     pub plugin_path: PathBuf,
-    pub config_path: PathBuf,
+    pub key_path: PathBuf,
     pub pipelines: Vec<Pipeline>,
 }
 
@@ -293,7 +293,7 @@ impl<'a, 'b> Config {
             )
         }.expect("Couldn't determine plugin path, please specify one");
         // // println!("XDG_DATA_DIRS: {:?}", path);
-        let config_path: PathBuf = if let Some(p) = config_file.config_path {
+        let key_path: PathBuf = if let Some(p) = config_file.key_path {
             Some(PathBuf::from(p))
         } else {
             xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
@@ -340,7 +340,7 @@ impl<'a, 'b> Config {
                 Mode::Agent => me.zmq_port + 1,
             },
             plugin_path: plugin_path,
-            config_path: config_path,
+            key_path: key_path,
             pipelines: root.pipelines,
         }
     }
