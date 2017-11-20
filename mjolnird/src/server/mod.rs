@@ -4,6 +4,7 @@ use std::time::Duration;
 use std::fs::File;
 use std::io::{Read, Write};
 
+use reqwest;
 use zmq::{self, Socket, Result as ZmqResult};
 
 use config::{Config, Mode};
@@ -165,5 +166,26 @@ fn zmq_listen(
 
 
         thread::sleep(duration);
+    }
+}
+
+fn get_master_pubkey(config: &Config) -> Option<String> {
+    let master = &config.masters[0];
+    if let Ok(mut resp) = reqwest::get(&format!("http://{}:{}/pubkey.pem", master.ip, master.http_port)) {
+        let status = resp.status();
+        if !status.is_success() {
+            return None;
+        }
+
+        let mut content = String::new();
+        match resp.read_to_string(&mut content) {
+            Ok(_size_read) => Some(content),
+            Err(e) => {
+                println!("error reading server's public key: {:?}", e);
+                None
+            }
+        }
+    } else {
+        None
     }
 }
