@@ -112,16 +112,26 @@ mod tests {
         let empty_vec: Vec<Pipeline> = vec![];
         assert_eq!(empty_vec, empty());
     }
+
+    #[test]
+    fn empty_vec_s() {
+        let empty_vec: Vec<String> = vec![];
+        assert_eq!(empty_vec, empty_s());
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct Root {
     mjolnir: ConfigFile,
+    master: Option<ConfigFile>,
+    agent: Option<ConfigFile>,
     #[serde(default="empty")]
     pipelines: Vec<Pipeline>,
 }
 
-
+fn empty_s() -> Vec<String> {
+    vec![]
+}
 
 fn empty() -> Vec<Pipeline> {
     vec![]
@@ -129,11 +139,11 @@ fn empty() -> Vec<Pipeline> {
 
 #[derive(Clone, Debug, Deserialize)]
 struct ConfigFile {
+    #[serde(default="empty_s")]
     masters: Vec<String>,
     plugin_path: Option<PathBuf>,
     key_path: Option<PathBuf>,
-    master: Option<String>,
-    agent: Option<String>,
+    bind: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -281,7 +291,7 @@ impl<'a, 'b> Config {
             Err(e) => panic!("Couldn't parse your config: {:?}", e),
         };
 
-        let config_file = root.mjolnir;
+        let mut config_file = root.mjolnir;
 
         let plugin_path: PathBuf = if let Some(p) = config_file.plugin_path {
             Some(PathBuf::from(p))
@@ -305,8 +315,26 @@ impl<'a, 'b> Config {
 
         let me = match mode {
             Mode::Master => {
-                if let Some(me) = config_file.master {
-                    Master::from_str(&me).expect(&format!("Couldn't parse my details from {}", me))
+                if let Some(me) = root.master {
+                    if let Some(plugin_path) = me.plugin_path {
+                        config_file.plugin_path = Some(plugin_path);
+                    }
+                    if let Some(key_path) = me.key_path {
+                        config_file.key_path = Some(key_path);
+                    }
+                    if let Some(bind) = me.bind {
+                        config_file.bind = Some(bind);
+                    }
+                    if let Some(bind) = config_file.bind {
+                        Master::from_str(&bind).expect(&format!("Couldn't parse my details from {}", bind))
+                    } else {
+                        Master {
+                            ip: "0.0.0.0".into(),
+                            http_port: 11011,
+                            zmq_port: 12011,
+                        }
+                    }
+                    
                 } else {
                     Master {
                         ip: "0.0.0.0".into(),
@@ -316,8 +344,26 @@ impl<'a, 'b> Config {
                 }
             },
             Mode::Agent => {
-                if let Some(me) = config_file.agent {
-                    Master::from_str(&me).expect(&format!("Couldn't parse my details from {}", me))
+                if let Some(me) = root.agent {
+                    if let Some(plugin_path) = me.plugin_path {
+                        config_file.plugin_path = Some(plugin_path);
+                    }
+                    if let Some(key_path) = me.key_path {
+                        config_file.key_path = Some(key_path);
+                    }
+                    if let Some(bind) = me.bind {
+                        config_file.bind = Some(bind);
+                    }
+                    if let Some(bind) = config_file.bind {
+                        Master::from_str(&bind).expect(&format!("Couldn't parse my details from {}", bind))
+                    } else {
+                        Master {
+                            ip: "0.0.0.0".into(),
+                            http_port: 11012,
+                            zmq_port: 12012,
+                        }
+                    }
+                    
                 } else {
                     Master {
                         ip: "0.0.0.0".into(),

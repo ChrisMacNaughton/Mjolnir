@@ -4,12 +4,14 @@
   # Masters have the format $IP:HTTP_PORT:$ZMQ_PORT
   masters = ["127.0.1.1:11011:12011"]
   plugin_path = "../target/debug/examples"
+  # bind = "127.0.0.1:11011:12011"
 
 [master]
 bind = "0.0.0.0:11011:12011"
 
 [agent]
 bind = "0.0.0.0:11012:12012"
+key_path  = "/tmp/agent_keys"
 
 [[pipelines]]
 
