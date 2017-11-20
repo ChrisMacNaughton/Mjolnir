@@ -4,6 +4,7 @@
   # Masters have the format $IP:HTTP_PORT:$ZMQ_PORT
   masters = ["127.0.1.1:11011:12011"]
   plugin_path = "../target/debug/examples"
+  secret = "w[4957ha[ruognqp357gf;eruigap47gfa;IRYEgf0a864fo"
 
 [master]
 bind = "0.0.0.0:11011:12011"
