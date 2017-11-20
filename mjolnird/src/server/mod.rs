@@ -22,17 +22,17 @@ mod tests {
 
     #[test]
     fn it_sets_up_crypto() {
-        let config_path = PathBuf::from("/tmp/mjolnir");
+        let key_path = PathBuf::from("/tmp/mjolnir");
 
-        let _ = remove_dir_all(&config_path);
-        let _ = create_dir_all(&config_path);
+        let _ = remove_dir_all(&key_path);
+        let _ = create_dir_all(&key_path);
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
             "--config=../examples/configs/mjolnir.toml",
             "master",
         ]);
         let mut config = Config::from_args(args);
-        config.config_path = config_path;
+        config.key_path = key_path;
 
         let context = zmq::Context::new();
         let mut responder = context.socket(zmq::REP).unwrap();
@@ -62,7 +62,7 @@ pub fn bind(config: Config) -> ZmqResult<()> {
 
 fn server_pubkey(config: &Config) -> String {
     let server_pubkey = {
-        let mut pubkey_path = config.config_path.clone();
+        let mut pubkey_path = config.key_path.clone();
         pubkey_path.push("ecpubkey.pem");
         if let Ok(mut file) = File::open(&pubkey_path) {
             let mut key = String::new();
@@ -99,9 +99,9 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
     // will raise EINVAL if not linked against libsodium
     // The ubuntu package is linked so this shouldn't fail
     s.set_curve_server(true)?;
-    let mut pubkey_path = config.config_path.clone();
+    let mut pubkey_path = config.key_path.clone();
     pubkey_path.push("ecpubkey.pem");
-    let mut key_path = config.config_path.clone();
+    let mut key_path = config.key_path.clone();
     key_path.push("ecpubkey.key");
     if let Ok(mut file) = File::open(&key_path) {
         let mut key = String::new();
