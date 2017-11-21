@@ -9,6 +9,25 @@ license = "MIT/Apache-2.0"
 description = "Mjölnir is a tool to manage large numbers of servers."
 homepage = "https://github.com/ChrisMacNaughton/Mjolnir"
 repository = "https://github.com/ChrisMacNaughton/Mjolnir.git"
+readme = "README.md"
+
+[package.metadata.deb]
+maintainer = "Chris MacNaughton <chris@centaurisolutions.nl>"
+copyright = "2017 Centauri Solutions"
+depends = "$auto"
+section = "utility"
+assets = [
+	["target/release/mjolnird", "usr/sbin/", "0755"],
+    ["target/release/examples/clean_disk", "usr/local/share/mjolnir/plugins/", "0775"],
+    ["target/release/examples/alertmanager", "usr/local/share/mjolnir/plugins/", "0775"],
+    ["README.md", "usr/share/doc/mjolnir/README", "0644"],
+    ["examples/configs/default.toml", "usr/local/share/mjolnir/config.toml", "0644"],
+]
+conf-files = [
+    "usr/local/share/mjolnir/config.toml",
+    "usr/local/share/mjolnir/ecpubkey.pem",
+    "usr/local/share/mjolnir/ecpubkey.key",
+]
 
 [dependencies]
 mjolnir-api = { path = "mjolnir-api"}

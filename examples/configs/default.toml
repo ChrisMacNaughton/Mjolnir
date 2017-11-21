@@ -1,0 +1,13 @@
+
+[mjolnir]
+  key_path = "/usr/local/share/mjolnir"
+  # Masters have the format $IP:HTTP_PORT:$ZMQ_PORT
+  masters = ["127.0.1.1:11011:12011"]
+  plugin_path = "/usr/local/share/mjolnir/plugins"
+  secret = "YOU SHOULD CHANGE THIS"
+
+[master]
+bind = "0.0.0.0:11011:12011"
+
+[agent]
+bind = "0.0.0.0:11012:12012"

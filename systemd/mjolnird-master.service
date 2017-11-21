@@ -1,0 +1,16 @@
+[Unit]
+Description=Mjolnir Master Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/mjolnird master
+ExecReload=/bin/kill -SIGTERM $MAINPID
+KillMode=process
+Restart=on-failure
+LimitNOFILE=infinity
+LimitNPROC=infinity
+TasksMax=infinity
+
+[Install]
+Alias=mjolnird-master.service
