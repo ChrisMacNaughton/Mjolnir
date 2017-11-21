@@ -20,6 +20,6 @@ Plugins are how Mjölnir interacts with other things, from monitoring frameworks
 
 ## Communication
 
-All communication is specified in the [api] document. 
+All communication is specified in the [api] definitions. 
 
-[api]: api/protos/service.proto
+[api]: mjolnir-api/protos/
