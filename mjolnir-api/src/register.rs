@@ -6,27 +6,37 @@ use proto;
 mod tests {
     use super::*;
 
-    pub use protobuf::core::{Message, parse_from_bytes};
+    pub use protobuf::core::{parse_from_bytes, Message};
 
     #[test]
     fn it_serializes_and_deserializes() {
-        let register = Register::new("10.0.0.1".parse().unwrap(), 12011, "awesome.local", "supersecret");
+        let register = Register::new(
+            "10.0.0.1".parse().unwrap(),
+            12011,
+            "awesome.local",
+            "supersecret",
+            "pub_key",
+        );
 
         let request: proto::agent::Register = register.clone().into();
 
         let bytes = request.write_to_bytes().unwrap();
-        let register2 = parse_from_bytes::<proto::agent::Register>(&bytes).unwrap().into();
+        let register2 = parse_from_bytes::<proto::agent::Register>(&bytes)
+            .unwrap()
+            .into();
         assert_eq!(register, register2);
     }
 
     #[test]
     fn it_serializes_and_deserializes_with_ipv6() {
-        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local", "supersecret");
+        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local", "supersecret", "pub_key");
 
         let request: proto::agent::Register = register.clone().into();
 
         let bytes = request.write_to_bytes().unwrap();
-        let register2 = parse_from_bytes::<proto::agent::Register>(&bytes).unwrap().into();
+        let register2 = parse_from_bytes::<proto::agent::Register>(&bytes)
+            .unwrap()
+            .into();
         assert_eq!(register, register2);
     }
 }
@@ -37,15 +47,28 @@ pub struct Register {
     pub port: u16,
     pub hostname: String,
     pub secret: String,
+    pub public_key: String,
 }
 
 impl Register {
-    pub fn new<T: Into<String>, T2: Into<String>>(ip: IpAddr, port: u16, hostname: T, secret: T2) -> Register {
+    pub fn new<T1, T2, T3>(
+        ip: IpAddr,
+        port: u16,
+        hostname: T1,
+        secret: T2,
+        public_key: T3,
+    ) -> Register 
+    where
+        T1: Into<String>,
+        T2: Into<String>,
+        T3: Into<String>
+        {
         Register {
             ip: ip,
             port: port,
             hostname: hostname.into(),
             secret: secret.into(),
+            public_key: public_key.into(),
         }
     }
 }
@@ -57,23 +80,25 @@ impl Into<proto::agent::Register> for Register {
         register.set_ip(self.ip.into());
         register.set_port(self.port as i32);
         register.set_secret(self.secret);
+        register.set_public_key(self.public_key);
         register
     }
 }
 
 impl From<proto::agent::Register> for Register {
-    fn from(register: proto::agent::Register) ->Register {
+    fn from(register: proto::agent::Register) -> Register {
         (&register).into()
     }
 }
 
 impl<'a> From<&'a proto::agent::Register> for Register {
-    fn from(register: &proto::agent::Register) ->Register {
+    fn from(register: &proto::agent::Register) -> Register {
         Register {
             hostname: register.get_hostname().into(),
             ip: register.get_ip().clone().into(),
             port: register.get_port() as u16,
             secret: register.get_secret().into(),
+            public_key: register.get_public_key().into(),
         }
     }
 }

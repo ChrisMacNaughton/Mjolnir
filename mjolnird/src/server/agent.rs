@@ -27,12 +27,13 @@ use protobuf::Message as ProtobufMsg;
 use zmq::{Message, Result as ZmqResult};
 
 use config::{Config, Master};
-use server::{connect, server_pubkey, zmq_listen};
+use server::{connect, get_master_pubkey, server_pubkey, zmq_listen};
 
 #[derive(Clone)]
 pub struct Agent {
     // masters: Arc<Vec<Master>>,
-    pubkey: String,
+    server_pubkey: String,
+    my_pubkey: String,
     config: Config,
 }
 
@@ -40,9 +41,11 @@ impl Agent {
     pub fn bind(config: Config) -> ZmqResult<()> {
 
         let background_config = config.clone();
+        let server_key = get_master_pubkey(&config).expect("Couldn't load the master's public key");
         let agent = Agent {
-            pubkey: server_pubkey(&config).into(),
+            my_pubkey: server_pubkey(&config).into(),
             config: config,
+            server_pubkey: server_key,
         };
 
         let _ = fs::create_dir_all(&agent.config.plugin_path);
@@ -80,7 +83,7 @@ impl Agent {
     fn listen(&self) -> ZmqResult<()> {
         let config = self.config.clone();
         let masters = config.masters.clone();
-        let server_pubkey = self.pubkey.clone();
+        let server_pubkey = self.server_pubkey.clone();
         zmq_listen(
             &self.config,
             Box::new(move|operation, responder| {
@@ -145,7 +148,7 @@ impl Agent {
     fn register(&self) -> ZmqResult<()> {
         // register with the master!
         let master = &self.config.masters[0];
-        let socket = match connect(&master.ip, master.zmq_port, &self.pubkey) {
+        let socket = match connect(&master.ip, master.zmq_port, &self.server_pubkey) {
             Ok(s) => s,
             Err(e) => {
                 println!("Error connecting to socket: {:?}", e);
@@ -161,6 +164,7 @@ impl Agent {
             self.config.zmq_port,
             get_hostname().unwrap(),
             self.config.secret.clone(),
+            self.my_pubkey.clone(),
         );
         o.set_register(register.into());
         let encoded = o.write_to_bytes().unwrap();

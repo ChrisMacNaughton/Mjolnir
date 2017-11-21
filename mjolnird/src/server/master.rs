@@ -24,7 +24,7 @@ use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
 use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult, Remediation};
-use server::{zmq_listen, connect, server_pubkey};
+use server::{zmq_listen, connect};
 use config::Config;
 
 #[cfg(test)]
@@ -79,6 +79,7 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now(),
+            public_key: "pub_key".into()
         };
 
         let a2 = Agent {
@@ -86,6 +87,7 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now() + Duration::from_secs(100),
+            public_key: "pub_key".into()
         };
 
         assert_eq!(a1.clone(), a2);
@@ -95,6 +97,7 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now(),
+            public_key: "pub_key".into()
         };
 
         assert_ne!(a1, a3);
@@ -154,6 +157,7 @@ struct Agent {
     hostname: String,
     port: u16,
     last_seen: Instant,
+    public_key: String,
 }
 
 impl PartialEq for Agent {
@@ -169,9 +173,8 @@ impl PartialEq for Agent {
 //     pub args: Vec<String>,
 // }
 impl Agent {
-    pub fn remediate(&self, alert: Alert, remediation: &Remediation, config: &Config) {
-        let server_pubkey = server_pubkey(&config);
-         match connect(&self.ip.to_string(), self.port, &server_pubkey){
+    pub fn remediate(&self, alert: Alert, remediation: &Remediation) {
+        match connect(&self.ip.to_string(), self.port, &self.public_key){
             Ok(socket) => {
                 let mut o = Operation::new();
                 // println!("Creating PING");
@@ -321,15 +324,13 @@ impl Master {
             server.run()
         });
         let background_agents = master.agents.clone();
-        let background_config = config.clone();
         let ping_duration = Duration::from_millis(500);
         let mpsc_duration = Duration::from_millis(50);
         thread::spawn(move|| {
-            let server_pubkey = server_pubkey(&background_config);
             loop {
                 if let Ok(agents) = background_agents.try_lock() {
                     for agent in agents.iter() {
-                        match connect(&agent.hostname, agent.port, &server_pubkey){
+                        match connect(&agent.hostname, agent.port, &agent.public_key){
                             Ok(socket) => {
                                 let mut o = Operation::new();
                                 // println!("Creating PING");
@@ -353,14 +354,13 @@ impl Master {
             }
         });
         let bg_master = master.clone();
-        let background_config = config.clone();
         thread::spawn(move|| {
             loop {
                 match receiver.try_recv() {
                     Ok(s) => {
                         match s {
                             MasterAction::Webhook(s) => bg_master.handle_webhook(s),
-                            MasterAction::Alert(alert) => bg_master.remediate(alert, &background_config)
+                            MasterAction::Alert(alert) => bg_master.remediate(alert)
                         }
                     },
                     Err(_e) => {},
@@ -373,7 +373,7 @@ impl Master {
         Ok(())
     }
 
-    fn remediate(&self, alert: Alert, config: &Config) {
+    fn remediate(&self, alert: Alert) {
         if let Some(pipeline) = self.pipelines.iter().find(|p| p.trigger == alert) {
             println!("Remediating {:?}", alert);
             if let Some(source) = alert.source.clone() {
@@ -381,7 +381,7 @@ impl Master {
                     if let Some(agent) = agents.iter().find(|a| a.hostname == source || a.ip.to_string() == source).clone() {
                         println!("Have an agent: {:?}", agent);
                         if let Some(ref action) = pipeline.actions.get(alert.next_remediation as usize) {
-                            agent.remediate(alert, action, config);
+                            agent.remediate(alert, action);
                         } else {
                             println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
                         }
@@ -432,6 +432,7 @@ impl Master {
                                 hostname: register.hostname.clone(),
                                 port: register.port,
                                 last_seen: Instant::now(),
+                                public_key: register.public_key,
                             };
                             let mut updated = false;
                             {
