@@ -1,0 +1,6 @@
+#!/bin/bash
+
+#!/bin/bash
+
+echo
+echo "You need to update the secret in /usr/local/share/mjolnir/config.toml"

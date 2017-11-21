@@ -28,6 +28,7 @@ conf-files = [
     "usr/local/share/mjolnir/ecpubkey.pem",
     "usr/local/share/mjolnir/ecpubkey.key",
 ]
+maintainer-scripts = "deb_scripts"
 
 [dependencies]
 mjolnir-api = { path = "mjolnir-api"}
