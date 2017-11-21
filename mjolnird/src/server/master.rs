@@ -44,7 +44,8 @@ mod tests {
             path: PathBuf::from("/bin/echo"),
         };
 
-        let body = process_webhook(plugin, "test".into());
+        let res = process_webhook(plugin, "test".into()).unwrap();
+        let body = String::from_utf8_lossy(&res);
         assert_eq!(body, "plugin=test-name body=test\n")
     }
 
@@ -131,7 +132,7 @@ mod tests {
 
         let plugin_result: plugin::RemediationResult = result.clone().into();
 
-        let bytes: String = String::from_utf8_lossy(&plugin_result.write_to_bytes().unwrap()).into_owned();
+        let bytes: Vec<u8> = plugin_result.write_to_bytes().unwrap().clone();
 
         master.handle_webhook(bytes);
 
