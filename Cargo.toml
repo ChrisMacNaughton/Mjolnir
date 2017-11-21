@@ -1,6 +1,6 @@
 [package]
 name = "mjolnir"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     "Chris MacNaughton <chris@centaurisolutions.nl>",
     "Chris Holcombe <xfactor973@gmail.com>",
@@ -22,6 +22,8 @@ assets = [
     ["target/release/examples/alertmanager", "usr/local/share/mjolnir/plugins/", "0775"],
     ["README.md", "usr/share/doc/mjolnir/README", "0644"],
     ["examples/configs/default.toml", "usr/local/share/mjolnir/config.toml", "0644"],
+    ["systemd/mjolnird-master.service", "etc/systemd/system/", "644"],
+    ["systemd/mjolnird-agent.service", "etc/systemd/system/", "644"],
 ]
 conf-files = [
     "usr/local/share/mjolnir/config.toml",

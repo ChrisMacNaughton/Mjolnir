@@ -271,7 +271,7 @@ impl<'a, 'b> Config {
                     |xdg| {
                         xdg.create_data_directory("").ok()
                     },
-                ).expect("Couldn't determine plugin path, please specify one");
+                ).expect("Couldn't determine config path, please specify one");
 
                 p.push("config.toml");
                 p
@@ -313,10 +313,10 @@ impl<'a, 'b> Config {
         } else {
             xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
                 |xdg| {
-                    xdg.create_config_directory("").ok()
+                    xdg.create_data_directory("").ok()
                 },
             )
-        }.expect("Couldn't determine config path, please specify one");
+        }.expect("Couldn't determine key path, please specify one");
 
         let me = match mode {
             Mode::Master => {
