@@ -24,7 +24,7 @@ use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
 use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult, Remediation};
-use server::{zmq_listen, connect};
+use server::{zmq_listen, connect, run_plugin};
 use config::Config;
 
 #[cfg(test)]
@@ -383,17 +383,63 @@ impl Master {
                         if let Some(ref action) = pipeline.actions.get(alert.next_remediation as usize) {
                             agent.remediate(alert, action);
                         } else {
-                            println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
+                            let res = self.remediate_default(alert);
+                            match res.result {
+                                Ok(()) => {},
+                                Err(e) => println!("Default remediation Failed: {:?}", e),
+                            }
+                            
                         }
                     }
                 } else {
                     println!("Failed to get lock");
+                    return;
                 }
             } else {
                 println!("PENDING : Handle alerts with no target");
+                let res = self.remediate_default(alert);
+                match res.result {
+                    Ok(()) => {},
+                    Err(e) => println!("Default remediation Failed: {:?}", e),
+                }
             }
         } else {
-            println!("Ignoring {:?}, no configured pipeline", alert);
+
+            println!("No pipeline configured for {:?}, falling back to default", alert);
+            let res = self.remediate_default(alert);
+            match res.result {
+                Ok(()) => {},
+                Err(e) => println!("Default remediation Failed: {:?}", e),
+            }
+        }
+
+        
+    }
+
+    fn remediate_default(&self, alert: Alert) -> RemediationResult {
+        if let Some(ref default) = self.config.default_remediation {
+            // agent.remediate(alert, &default);
+            let plugin_path = {
+                let mut plugin_path = self.config.plugin_path.clone();
+                plugin_path.push(&default.plugin);
+                plugin_path
+            };
+            let plugin = match Command::new(&plugin_path).output() {
+                Ok(output) => {
+                    match PluginEntry::try_from(
+                        &output.stdout,
+                        &plugin_path,
+                    ) {
+                        Ok(plugin) => plugin,
+                        Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
+                    }
+                }
+                Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
+            };
+            run_plugin(&plugin, &default)
+        } else {
+            println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
+            RemediationResult::new().err(format!("No default remediation configured")).with_alert(alert.increment())
         }
     }
 

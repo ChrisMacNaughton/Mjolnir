@@ -27,7 +27,7 @@ use protobuf::Message as ProtobufMsg;
 use zmq::{Message, Result as ZmqResult};
 
 use config::{Config, Master};
-use server::{connect, get_master_pubkey, server_pubkey, zmq_listen};
+use server::{connect, get_master_pubkey, run_plugin, server_pubkey, zmq_listen};
 
 #[derive(Clone)]
 pub struct Agent {
@@ -258,31 +258,4 @@ fn remediate(remediation: Remediation, config: &Config, masters: &Vec<Master>) -
         res = res.with_alert(remediation.alert.unwrap().increment());
     }
     res
-}
-
-fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationResult {
-    // println!("Hook is: {:?}", hook);
-    let mut cmd = Command::new(&plugin.path);
-    cmd.arg(format!("plugin={}", plugin.name));
-    // cmd.arg(format!("body={}", body));
-    for arg in &remediation.args {
-        // println!("Adding {} to {:?}", arg, cmd);
-        cmd.arg(&arg);
-    }
-    if let Some(ref alert) = remediation.alert {
-        for arg in &alert.args {
-            // println!("Adding {} to {:?}", arg, cmd);
-            cmd.arg(&arg);
-        }
-    }
-    // println!("About to run command: {:?}", cmd);
-    match cmd.output() {
-        Ok(output) => {
-            match String::from_utf8(output.stdout) {
-                Ok(s) => RemediationResult::from_string(&s),
-                Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment()),
-            }
-        }
-        Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment())
-    }
 }

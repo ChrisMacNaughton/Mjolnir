@@ -6,6 +6,9 @@
   plugin_path = "../target/debug/examples"
   # bind = "127.0.0.1:11011:12011"
   secret = "w[4957ha[ruognqp357gf;eruigap47gfa;IRYEgf0a864fo"
+  [mjolnir.default_remediation]
+    plugin = "slack"
+    args = ["user=user", "token=token"]
 
 [master]
 bind = "0.0.0.0:11011:12011"

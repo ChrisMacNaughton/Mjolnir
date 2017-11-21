@@ -3,6 +3,7 @@ use std::thread;
 use std::time::Duration;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::process::Command;
 
 use reqwest;
 use zmq::{self, Socket, Result as ZmqResult};
@@ -12,8 +13,7 @@ use config::{Config, Mode};
 mod master;
 mod agent;
 
-
-use mjolnir_api::{Operation, parse_from_bytes};
+use mjolnir_api::{Operation, parse_from_bytes, PluginEntry, Remediation, RemediationResult};
 
 #[cfg(test)]
 mod tests {
@@ -187,5 +187,32 @@ fn get_master_pubkey(config: &Config) -> Option<String> {
         }
     } else {
         None
+    }
+}
+
+fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationResult {
+    // println!("Hook is: {:?}", hook);
+    let mut cmd = Command::new(&plugin.path);
+    cmd.arg(format!("plugin={}", plugin.name));
+    // cmd.arg(format!("body={}", body));
+    for arg in &remediation.args {
+        // println!("Adding {} to {:?}", arg, cmd);
+        cmd.arg(&arg);
+    }
+    if let Some(ref alert) = remediation.alert {
+        for arg in &alert.args {
+            // println!("Adding {} to {:?}", arg, cmd);
+            cmd.arg(&arg);
+        }
+    }
+    // println!("About to run command: {:?}", cmd);
+    match cmd.output() {
+        Ok(output) => {
+            match String::from_utf8(output.stdout) {
+                Ok(s) => RemediationResult::from_string(&s),
+                Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment()),
+            }
+        }
+        Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment())
     }
 }

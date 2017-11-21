@@ -9,6 +9,7 @@ use toml;
 use xdg;
 
 use mjolnir::Pipeline;
+use mjolnir_api::Remediation;
 
 #[cfg(test)]
 mod tests {
@@ -145,6 +146,7 @@ struct ConfigFile {
     key_path: Option<PathBuf>,
     bind: Option<String>,
     secret: Option<String>,
+    default_remediation: Option<Remediation>,
 }
 
 #[derive(Clone, Debug)]
@@ -158,6 +160,7 @@ pub struct Config {
     pub plugin_path: PathBuf,
     pub key_path: PathBuf,
     pub pipelines: Vec<Pipeline>,
+    pub default_remediation: Option<Remediation>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -390,6 +393,7 @@ impl<'a, 'b> Config {
             plugin_path: plugin_path,
             key_path: key_path,
             pipelines: root.pipelines,
+            default_remediation: config_file.default_remediation,
             secret: config_file.secret.expect("A shared secret is required"),
         }
     }
