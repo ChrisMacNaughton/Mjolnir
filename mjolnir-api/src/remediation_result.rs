@@ -102,6 +102,11 @@ impl RemediationResult {
         let r2 = parse_from_bytes::<plugin::RemediationResult>(input.as_bytes()).unwrap();
         r2.into()
     }
+
+    pub fn from_bytes(input: &[u8]) -> RemediationResult {
+        let r2 = parse_from_bytes::<plugin::RemediationResult>(input).unwrap();
+        r2.into()
+    }
 }
 
 impl<'a> From<&'a plugin::RemediationResult> for RemediationResult {

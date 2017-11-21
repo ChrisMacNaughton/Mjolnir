@@ -1,6 +1,8 @@
-use plugin::RemediationRequest;
+use protobuf;
+
+use plugin::{self, RemediationRequest};
 use alert::Alert;
-use RepeatedField;
+use {Message, RepeatedField, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {
@@ -141,5 +143,21 @@ impl Remediation {
             repeated_remediations.push(remediation.into());
         }
         repeated_remediations
+    }
+
+    pub fn write_to_bytes(self) -> Result<Vec<u8>, protobuf::ProtobufError> {
+        let plugin_result: plugin::RemediationRequest = self.into();
+
+        plugin_result.write_to_bytes()
+    }
+
+    pub fn from_string(input: &String) -> Remediation {
+        let r2 = parse_from_bytes::<plugin::RemediationRequest>(input.as_bytes()).unwrap();
+        r2.into()
+    }
+
+    pub fn from_bytes(input: &[u8]) -> Remediation {
+        let r2 = parse_from_bytes::<plugin::RemediationRequest>(input).unwrap();
+        r2.into()
     }
 }

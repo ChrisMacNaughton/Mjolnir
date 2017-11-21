@@ -1,6 +1,6 @@
 [package]
 name = "mjolnir-api"
-version = "0.1.0"
+version = "0.1.2"
 authors = [
     "Chris MacNaughton <chris@centaurisolutions.nl>",
     "Chris Holcombe <xfactor973@gmail.com>",

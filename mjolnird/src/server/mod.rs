@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::process::Command;
 
+use base64::encode;
 use reqwest;
 use zmq::{self, Socket, Result as ZmqResult};
 
@@ -205,7 +206,7 @@ fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationRes
             cmd.arg(&arg);
         }
     }
-    // println!("About to run command: {:?}", cmd);
+    cmd.arg(format!("remediation={}", encode(&remediation.clone().write_to_bytes().unwrap())));
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {

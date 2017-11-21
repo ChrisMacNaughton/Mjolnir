@@ -8,7 +8,7 @@
   secret = "w[4957ha[ruognqp357gf;eruigap47gfa;IRYEgf0a864fo"
   [mjolnir.default_remediation]
     plugin = "slack"
-    args = ["user=user", "token=token"]
+    args = ["botname=user", "channel=#general", "webhook=https://PATH"]
 
 [master]
 bind = "0.0.0.0:11011:12011"

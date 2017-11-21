@@ -206,7 +206,7 @@ pub struct Master {
 }
 
 enum MasterAction {
-    Webhook(String),
+    Webhook(Vec<u8>),
     Alert(Alert),
 }
 
@@ -225,7 +225,7 @@ impl Service for Master {
     }
 }
 
-fn process_webhook(hook: PluginEntry, body: String) -> String {
+fn process_webhook(hook: PluginEntry, body: String) -> Result<Vec<u8>, String> {
     // println!("Hook is: {:?}", hook);
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
@@ -233,12 +233,13 @@ fn process_webhook(hook: PluginEntry, body: String) -> String {
     // println!("About to run command: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
-            match String::from_utf8(output.stdout) {
-                Ok(s) => s,
-                Err(e) => format!("{:?}", e),
-            }
+            // match String::from_utf8(output.stdout) {
+            //     Ok(s) => s,
+            //     Err(e) => format!("{:?}", e),
+            // }
+            Ok(output.stdout)
         }
-        Err(e) => format!("{:?}", e)
+        Err(e) => Err(format!("{:?}", e)),
     }
 }
 
@@ -258,9 +259,9 @@ impl Master {
         )
     }
 
-    fn handle_webhook(&self, data: String) {
-        // println!("About to parse {}", data);
-        let result = RemediationResult::from_string(&data);
+    fn handle_webhook(&self, data: Vec<u8>) {
+        // println!("About to parse {:?}", data);
+        let result = RemediationResult::from_bytes(&data);
         for alert in result.alerts {
             let _ = self.sender.send(MasterAction::Alert(alert));
         }
@@ -291,8 +292,9 @@ impl Master {
             let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
                 match String::from_utf8(body.to_vec()) {
                     Ok(s) => {
-                        let webhook_output = process_webhook(hook, s);
-                        let _ = sender.send(MasterAction::Webhook(webhook_output));
+                        if let Ok(webhook_output) = process_webhook(hook, s) {
+                            let _ = sender.send(MasterAction::Webhook(webhook_output));
+                        }
                         Box::new(Body::from("Ok"))
                     },
                     Err(_) => Box::new(Body::from("Invalid Body")),
@@ -405,7 +407,7 @@ impl Master {
             }
         } else {
 
-            println!("No pipeline configured for {:?}, falling back to default", alert);
+            println!("No pipeline configured for {}/{:?}, falling back to default", alert.alert_type, alert.name);
             let res = self.remediate_default(alert);
             match res.result {
                 Ok(()) => {},
@@ -417,7 +419,7 @@ impl Master {
     }
 
     fn remediate_default(&self, alert: Alert) -> RemediationResult {
-        if let Some(ref default) = self.config.default_remediation {
+        if let Some(mut default) = self.config.default_remediation.clone() {
             // agent.remediate(alert, &default);
             let plugin_path = {
                 let mut plugin_path = self.config.plugin_path.clone();
@@ -436,6 +438,7 @@ impl Master {
                 }
                 Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
             };
+            default.alert =Some(alert);
             run_plugin(&plugin, &default)
         } else {
             println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);

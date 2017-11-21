@@ -93,6 +93,7 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
     };
     let alerts = incoming.alerts.iter().map(|a| {
         let mut alert = Alert::new("alertmanager");
+        alert = alert.with_arg(format!("raw={}", body));
         if let Some(name) = a.labels.get("alertname") {
             alert = alert.with_name(name.clone());
         }
