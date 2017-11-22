@@ -19,3 +19,4 @@ After a new problem has been identified, it should be fairly trivial to create a
 ### Alerting
 
 - [Slack](https://gogs.centauri.solutions/Mjolnir/slack)
+- [Telegram](https://gogs.centauri.solutions/Mjolnir/telegram)

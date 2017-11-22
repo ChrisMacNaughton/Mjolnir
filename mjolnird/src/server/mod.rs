@@ -207,6 +207,7 @@ fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationRes
         }
     }
     cmd.arg(format!("remediation={}", encode(&remediation.clone().write_to_bytes().unwrap())));
+    // println!("Command is: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {

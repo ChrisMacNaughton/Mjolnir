@@ -93,7 +93,7 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
     };
     let alerts = incoming.alerts.iter().map(|a| {
         let mut alert = Alert::new("alertmanager");
-        alert = alert.with_arg(format!("raw={}", body));
+        alert = alert.with_arg(format!("raw={:?}", incoming));
         if let Some(name) = a.labels.get("alertname") {
             alert = alert.with_name(name.clone());
         }
@@ -117,7 +117,7 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
 }
 
 // You may want custom structs to handle input
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(non_snake_case)]
 struct Incoming {
@@ -135,14 +135,14 @@ struct Incoming {
     // name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 enum Status {
     resolved,
     firing,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct PAlert {
     labels: HashMap<String, String>,
     annotations: HashMap<String, String>,
