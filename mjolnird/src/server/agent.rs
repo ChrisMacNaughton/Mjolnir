@@ -6,6 +6,7 @@ use std::fs;
 use std::os::unix::fs::OpenOptionsExt;
 use std::io;
 use std::process::Command;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use std::thread;
 
@@ -41,11 +42,11 @@ impl Agent {
     pub fn bind(config: Config) -> ZmqResult<()> {
 
         let background_config = config.clone();
-        let server_key = get_master_pubkey(&config).expect("Couldn't load the master's public key");
+
         let agent = Agent {
             my_pubkey: server_pubkey(&config).into(),
             config: config,
-            server_pubkey: server_key,
+            server_pubkey: server_pubkey(&background_config),
         };
 
         let _ = fs::create_dir_all(&agent.config.plugin_path);
@@ -53,10 +54,10 @@ impl Agent {
         let ping_duration = Duration::from_millis(500);
         let masters = agent.config.masters.clone();
         thread::spawn(move|| {
-            let server_pubkey = server_pubkey(&background_config);
             loop {
                 for master in masters.iter() {
-                    match connect(&master.ip, master.zmq_port, &server_pubkey){
+                    let server_key = get_master_pubkey(&master).expect("Couldn't load the master's public key");
+                    match connect(&master.ip, master.zmq_port, &server_key){
                         Ok(socket) => {
                             let mut o = Operation::new();
                             // println!("Creating PING");
@@ -85,7 +86,7 @@ impl Agent {
         let masters = config.masters.clone();
         let server_pubkey = self.server_pubkey.clone();
         zmq_listen(
-            &self.config,
+            &Arc::new(RwLock::new(config.clone())),
             Box::new(move|operation, responder| {
                 match operation.get_operation_type() {
                     OpType::PING => {

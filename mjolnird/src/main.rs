@@ -21,13 +21,28 @@ extern crate mjolnir_api;
 mod config;
 mod server;
 
-use config::Config;
+use config::{Config, Mode, CliMode};
 
 fn main() {
     println!("Welcome to Mjölnir");
 
     let config = Config::get_config();
     println!("About to start with {:?}", config);
-
+    match config.mode {
+        Mode::Cli(mode) => {
+            cli(&config, mode);
+            return;
+        },
+        _ => {}
+    }
     server::bind(config).expect("Couldn't bind to the specified port");
+}
+
+fn cli(config: &Config, mode: CliMode) {
+    println!("Running {:?}", mode);
+    for master in config.masters.iter() {
+        if let Some(key) = server::get_master_pubkey(&master) {
+            server::reload(&master, &key);
+        }
+    }
 }

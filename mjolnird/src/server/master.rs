@@ -1,10 +1,10 @@
 use std::time::{Instant, Duration};
-use std::fs::{File, read_dir};
+use std::fs::{File};
 use std::io::{self, Read};
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread;
 
@@ -24,7 +24,7 @@ use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
 use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult, Remediation};
-use server::{zmq_listen, connect, run_plugin};
+use server::{zmq_listen, connect, run_plugin, plugins, pipelines};
 use config::Config;
 
 #[cfg(test)]
@@ -199,11 +199,11 @@ impl Agent {
 #[derive(Clone, Debug)]
 pub struct Master {
     agents: Arc<Mutex<Vec<Agent>>>,
-    plugins: Vec<PluginEntry>,
+    plugins: Arc<RwLock<Vec<PluginEntry>>>,
     plugin_path: Option<PathBuf>,
-    pipelines: Vec<Pipeline>,
+    pipelines: Arc<RwLock<Vec<Pipeline>>>,
     sender: Sender<MasterAction>,
-    config: Config,
+    config: Arc<RwLock<Config>>,
 }
 
 enum MasterAction {
@@ -250,11 +250,11 @@ impl Master {
         (
             Master {
                 agents: Arc::new(Mutex::new(vec![])),
-                plugins: vec![],
+                plugins: Arc::new(RwLock::new(vec![])),
                 plugin_path: None,
-                pipelines: vec![],
+                pipelines: Arc::new(RwLock::new(vec![])),
                 sender: sender,
-                config: config
+                config: Arc::new(RwLock::new(config)),
             },
             receiver
         )
@@ -280,12 +280,21 @@ impl Master {
     > {
         // println!("Responding to webook {} at {}", name, req.path());
         // let plugins = plugins.clone();
-        let hook = self.plugins
-            .iter()
-            .filter(|wh| wh.webhook)
-            .filter(|wh| wh.name == name)
-            .nth(0)
-            .map(|p| p.clone());
+        let hook =  {
+            let plugins = match self.plugins.read() {
+                Ok(p) => p,
+                Err(e) => {
+                    println!("Error taking RwLock: {:?}", e);
+                    return internal_server_error();
+                }
+            };
+            plugins
+                .iter()
+                .filter(|wh| wh.webhook)
+                .filter(|wh| wh.name == name)
+                .nth(0)
+                .map(|p| p.clone())
+        };
         // let hook: Option<PluginEntry> = *hook.clone();
         let sender = self.sender.clone();
         Box::new(req.body().concat2().map(move |body| {
@@ -314,8 +323,8 @@ impl Master {
     pub fn bind(config: Config) -> ZmqResult<()> {
         let (mut master, receiver) = Master::new(config.clone());
         master = master.with_plugin_path(config.plugin_path.clone())
-            .load_plugins()
-            .load_pipelines();
+            .load_plugins();
+        master.load_pipelines();
 
         let http_config = config.clone();
 
@@ -371,13 +380,20 @@ impl Master {
                 thread::sleep(mpsc_duration);
             }
         });
-        let _ = master.setup_zmq(&config)?;
+        let _ = master.setup_zmq()?;
         thread::park();
         Ok(())
     }
 
     fn remediate(&self, alert: Alert) {
-        if let Some(pipeline) = self.pipelines.iter().find(|p| p.trigger == alert) {
+        let pipelines = match self.pipelines.read() {
+            Ok(p) => p,
+            Err(e) => {
+                println!("Error taking RwLock on pipelines: {:?}", e);
+                return;
+            }
+        };
+        if let Some(pipeline) = pipelines.iter().find(|p| p.trigger == alert) {
             println!("Remediating {:?}", alert);
             if let Some(source) = alert.source.clone() {
                 if let Ok(agents) = self.agents.try_lock() {
@@ -420,10 +436,15 @@ impl Master {
     }
 
     fn remediate_default(&self, alert: Alert) -> RemediationResult {
-        if let Some(mut default) = self.config.default_remediation.clone() {
+        let config = match self.config.read() {
+            Ok(c) => c,
+            Err(e) => return RemediationResult::new().err(format!("Couldn't get read lock: {:?}", e))
+        };
+
+        if let Some(mut default) = config.default_remediation.clone() {
             // agent.remediate(alert, &default);
             let plugin_path = {
-                let mut plugin_path = self.config.plugin_path.clone();
+                let mut plugin_path = config.plugin_path.clone();
                 plugin_path.push(&default.plugin);
                 plugin_path
             };
@@ -447,13 +468,15 @@ impl Master {
         }
     }
 
-    fn setup_zmq(&self, config: &Config) -> ZmqResult<()> {
+    fn setup_zmq(&self) -> ZmqResult<()> {
         // let agents: Arc<Mutex<Vec<Agent>>> = self.agents.clone();
         let agents = self.agents.clone();
         let sender = self.sender.clone();
-        let boxed_config = config.clone();
+        let boxed_config = self.config.clone();
+        let boxed_plugins = self.plugins.clone();
+        let boxed_pipelines = self.pipelines.clone();
         zmq_listen(
-            config,
+            &self.config,
             Box::new(move |operation, responder| {
                 let agents = agents.clone();
                 match operation.get_operation_type() {
@@ -468,40 +491,48 @@ impl Master {
                     }
                     OpType::REGISTER => {
                         let register: Register = operation.get_register().into();
-                        if register.secret != boxed_config.secret {
-                            println!("Bad agent registration: {:?}", register);
-                            let mut o = Operation::new();
-                            o.set_operation_type(OpType::NACK);
-                            let encoded = o.write_to_bytes().unwrap();
-                            let msg = Message::from_slice(&encoded)?;
-                            responder.send_msg(msg, 0)?;
-                        } else {
-                            ack(responder)?;
-                            let agent = Agent {
-                                ip: register.ip,
-                                hostname: register.hostname.clone(),
-                                port: register.port,
-                                last_seen: Instant::now(),
-                                public_key: register.public_key,
-                            };
-                            let mut updated = false;
-                            {
-                                let mut agents = agents.lock().expect("Couldn't lock agents");
-                                {
-                                    let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
-                                    if let Some(known_agent) = known {
-                                        known_agent.last_seen = agent.last_seen;
-                                        updated = true;
+                        match boxed_config.read() {
+                            Ok(config) => {
+                                if register.secret != config.secret {
+                                    println!("Bad agent registration: {:?}", register);
+                                    let mut o = Operation::new();
+                                    o.set_operation_type(OpType::NACK);
+                                    let encoded = o.write_to_bytes().unwrap();
+                                    let msg = Message::from_slice(&encoded)?;
+                                    responder.send_msg(msg, 0)?;
+                                } else {
+                                    ack(responder)?;
+                                    let agent = Agent {
+                                        ip: register.ip,
+                                        hostname: register.hostname.clone(),
+                                        port: register.port,
+                                        last_seen: Instant::now(),
+                                        public_key: register.public_key,
+                                    };
+                                    let mut updated = false;
+                                    {
+                                        let mut agents = agents.lock().expect("Couldn't lock agents");
+                                        {
+                                            let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
+                                            if let Some(known_agent) = known {
+                                                known_agent.last_seen = agent.last_seen;
+                                                updated = true;
+                                            }
+                                        }
+                                        if !updated {
+                                            println!("Adding a new agent: {:?}!", agent);
+                                            agents.push(agent);
+                                        }
+
+                                        println!("#{} Agents", agents.len());
                                     }
                                 }
-                                if !updated {
-                                    println!("Adding a new agent: {:?}!", agent);
-                                    agents.push(agent);
-                                }
-
-                                println!("#{} Agents", agents.len());
+                            },
+                            Err(e) => {
+                                println!("Failed to get write lock: {:?}", e);
+                                return Ok(());
                             }
-                        }
+                        };
                     }
                     OpType::ALERT => {
                         ack(responder)?;
@@ -520,6 +551,38 @@ impl Master {
                             }
                         }
                         
+                    }
+                    OpType::RELOAD => {
+                        ack(responder)?;
+                        println!("Received reload request");
+                        loop {
+                            match boxed_config.try_write() {
+                                Ok(mut config) => {
+                                    *config = Config::get_config();
+                                    println!("Reloaded config!");
+                                    match boxed_plugins.try_write() {
+                                        Ok(mut loaded_plugins) => {
+                                            // *loaded_plugins = plugins(config;
+                                            *loaded_plugins = plugins(&config.plugin_path);
+                                            println!("Reloaded plugins!");
+                                            match boxed_pipelines.try_write() {
+                                                Ok(mut loaded_pipelines) => {
+                                                    // *loaded_plugins = plugins(config;
+                                                    // *loaded_pipelines = plugins(&config.plugin_path);
+                                                    *loaded_pipelines = pipelines(&config, &*loaded_plugins);
+                                                    println!("Reloaded pipelines!");
+                                                },
+                                                Err(e) => println!("Failed to get write lock on pipelines: {:?}", e),
+                                            }
+                                        },
+                                        Err(e) => println!("Failed to get write lock on plugins: {:?}", e),
+                                    }
+                                    break
+                                },
+                                Err(e) => println!("Failed to get write lock: {:?}", e),
+                            }
+                            thread::sleep(Duration::from_millis(20));
+                        }
                     }
                     _ => {
                         println!("Not quite handling {:?} yet", operation);
@@ -542,7 +605,16 @@ impl Master {
     > {
         match (req.method(), req.path()) {
             (&Method::Get, "/pubkey.pem") => {
-                let mut path = self.config.key_path.clone();
+                let mut path = {
+                    let config = match self.config.read() {
+                        Ok(c) => c,
+                        Err(e) => {
+                            println!("Failed to get read lock: {:?}", e);
+                            return internal_server_error()
+                        },
+                    };
+                    config.key_path.clone()
+                };
                 path.push("ecpubkey.pem");
                 read_file(&path)
             }
@@ -552,7 +624,17 @@ impl Master {
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
                     (Some("plugin"), Some(name)) => {
-                        if let Some(local_path) = local_path_for_request(&format!("/{}", name), &self.config.plugin_path) {
+                        let local_path = {
+                            let config = match self.config.read() {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    println!("Failed to get read lock: {:?}", e);
+                                    return internal_server_error()
+                                },
+                            };
+                            local_path_for_request(&format!("/{}", name), &config.plugin_path)
+                        };
+                        if let Some(local_path) = local_path {
                             read_file(&local_path)
                         } else {
                             not_found(&req)
@@ -588,55 +670,27 @@ impl Master {
     fn load_plugins(mut self) -> Self {
         let path = self.plugin_path.clone();
         if let Some(ref path) = path {
-            let mut plugins = vec![];
-            if let Ok(dir) = read_dir(path) {
-                for file in dir {
-                    if let Ok(file) = file {
-                        if let Ok(output) = Command::new(file.path()).output() {
-                            match PluginEntry::try_from(
-                                &output.stdout,
-                                &file.path(),
-                            ) {
-                                Ok(plugin) => {
-                                    if !plugins.contains(&plugin) {
-                                        plugins.push(plugin);
-                                    }
-                                }
-                                Err(e) => println!("Had a problem loading plugin at {}: {:?}", file.path().display(), e)
-                            }
-                        }
+            self.plugins = Arc::new(RwLock::new(plugins(path)));
+        }
+        self
+    }
+
+    fn load_pipelines(&mut self) -> &mut Self {
+        match self.config.read() {
+            Ok(c) => {
+                match self.plugins.read() {
+                    Ok(plugins) => self.pipelines = Arc::new(RwLock::new(pipelines(&c, &plugins))),
+                    Err(e) => {
+                        println!("Failed to get RwLock on plugins: {:?}", e)
                     }
                 }
-            }
-            self.plugins = plugins;
-        }
-        self
-    }
-
-    fn load_pipelines(mut self) -> Self {
-        self.pipelines = {
-            let pipelines = &self.config.pipelines;
-
-            match self.validate_pipelines(&pipelines) {
-                Ok(()) => {},
-                Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
-            }
-
-            self.config.pipelines.clone()
-        };
-        self
-    }
-
-    fn validate_pipelines(&self, pipelines: &Vec<Pipeline>) -> Result<(), String> {
-        for pipeline in pipelines {
-            for action in &pipeline.actions {
-                println!("Validating we have a plugin configured for '{}'", action.plugin);
-                if !self.plugins.iter().any(|p| p.name == action.plugin) {
-                    return Err(format!("{} has no matching plugin", action.plugin));
-                }
+                
+            },
+            Err(e) => {
+                println!("Failed to get RwLock: {:?}", e);
             }
         }
-        Ok(())
+        self
     }
 }
 
