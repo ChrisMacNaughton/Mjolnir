@@ -4,7 +4,7 @@ use std::net::{IpAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use toml;
 use xdg;
 
@@ -215,9 +215,15 @@ impl FromStr for Master {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CliMode {
+    Reload,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Mode {
     Agent,
     Master,
+    Cli(CliMode),
 }
 
 impl<'a, 'b> Config {
@@ -225,6 +231,7 @@ impl<'a, 'b> Config {
         App::new("Mjölnir")
             .version(crate_version!())
             .author(crate_authors!())
+            .setting(AppSettings::SubcommandRequired)
             .arg(
                 Arg::with_name("config")
                     .help("What is the path to my config file")
@@ -246,6 +253,9 @@ impl<'a, 'b> Config {
             .subcommand(SubCommand::with_name("master")
                 .help("The daemon that controls everything")
             )
+            .subcommand(SubCommand::with_name("reload")
+                .help("Ask the masters to reload their config")
+            )
     }
 
     pub fn zmq_address(&self) -> String {
@@ -260,6 +270,7 @@ impl<'a, 'b> Config {
         let mode = match matches.subcommand() {
             ("master", Some(_master_matches)) => Mode::Master,
             ("agent", Some(_agent_matches)) => Mode::Agent,
+            ("reload", Some(_matches)) => Mode::Cli(CliMode::Reload),
             (_, _) => unreachable!(),
         };
 
@@ -348,7 +359,7 @@ impl<'a, 'b> Config {
                     }
                 }
             },
-            Mode::Agent => {
+            Mode::Agent | Mode::Cli(_) => {
                 if let Some(me) = root.agent {
                     if let Some(plugin_path) = me.plugin_path {
                         config_file.plugin_path = Some(plugin_path);
@@ -384,11 +395,11 @@ impl<'a, 'b> Config {
             bind_ip: IpAddr::from_str(&me.ip).expect(&format!("Couldn't parse IP from {}", me.ip)),
             http_port: match mode {
                 Mode::Master => me.http_port,
-                Mode::Agent => me.http_port + 1,
+                Mode::Agent | Mode::Cli(_) => me.http_port + 1,
             },
             zmq_port: match mode {
                 Mode::Master => me.zmq_port,
-                Mode::Agent => me.zmq_port + 1,
+                Mode::Agent | Mode::Cli(_) => me.zmq_port + 1,
             },
             plugin_path: plugin_path,
             key_path: key_path,

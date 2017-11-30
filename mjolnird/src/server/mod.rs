@@ -1,20 +1,26 @@
 // use hyper::Error;
 use std::thread;
 use std::time::Duration;
-use std::fs::File;
+use std::fs::{File, read_dir};
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{Arc, RwLock};
 
 use base64::encode;
 use reqwest;
-use zmq::{self, Socket, Result as ZmqResult};
+use zmq::{self, Message, Socket, Result as ZmqResult};
 
-use config::{Config, Mode};
+use config::{Config, Master, Mode};
 
 mod master;
 mod agent;
 
-use mjolnir_api::{Operation, parse_from_bytes, PluginEntry, Remediation, RemediationResult};
+use protobuf::Message as ProtobufMsg;
+
+use mjolnir_api::{Operation, parse_from_bytes, PluginEntry, Remediation, RemediationResult, OperationType as OpType};
+
+use mjolnir::Pipeline;
 
 #[cfg(test)]
 mod tests {
@@ -55,10 +61,31 @@ mod tests {
 
 }
 
+pub fn reload<T: AsRef<str>>(master: &Master, pubkey: T) {
+    match connect(&master.ip, master.zmq_port, pubkey.as_ref()){
+        Ok(socket) => {
+            let mut o = Operation::new();
+            // println!("Creating PING");
+            println!("Asking {} to reload", master.ip);
+            o.set_operation_type(OpType::RELOAD);
+
+            let encoded = o.write_to_bytes().unwrap();
+            let msg = Message::from_slice(&encoded).unwrap();
+            match socket.send_msg(msg, 0) {
+                Ok(_s) => {},
+                Err(e) => println!("Problem sending reload: {:?}", e)
+            }
+        }
+        Err(e) => println!("problem connecting to socket: {:?}", e),
+    }
+    println!("Done!");
+}
+
 pub fn bind(config: Config) -> ZmqResult<()> {
     match &config.mode {
         &Mode::Agent => agent::Agent::bind(config),
         &Mode::Master => master::Master::bind(config),
+        _ => unreachable!()
     }
 }
 
@@ -130,17 +157,19 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
 Server that manages disks
 */
 fn zmq_listen(
-    config: &Config,
+    config: &Arc<RwLock<Config>>,
     callback: Box<Fn(Operation, &Socket) -> ZmqResult<()>>,
 ) -> ZmqResult<()> {
     println!("Starting zmq listener with version({:?})", zmq::version());
     let context = zmq::Context::new();
     let mut responder = context.socket(zmq::REP)?;
-
-    println!("Listening on {}", config.zmq_address());
-    // Fail to start if this fails
-    setup_curve(&mut responder, config)?;
-    assert!(responder.bind(&format!("tcp://{}:{}", config.bind_ip, config.zmq_port)).is_ok());
+    {
+        let config = config.read().expect("Couldn't setup zmq bind, need read lock on config");
+        println!("Listening on {}", config.zmq_address());
+        // Fail to start if this fails
+        setup_curve(&mut responder, &config)?;
+        assert!(responder.bind(&format!("tcp://{}:{}", config.bind_ip, config.zmq_port)).is_ok());
+    }
     println!("Going into the zmq loop");
     let duration = Duration::from_millis(10);
     loop {
@@ -170,8 +199,7 @@ fn zmq_listen(
     }
 }
 
-fn get_master_pubkey(config: &Config) -> Option<String> {
-    let master = &config.masters[0];
+pub(crate) fn get_master_pubkey(master: &Master) -> Option<String> {
     if let Ok(mut resp) = reqwest::get(&format!("http://{}:{}/pubkey.pem", master.ip, master.http_port)) {
         let status = resp.status();
         if !status.is_success() {
@@ -217,4 +245,55 @@ fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationRes
         }
         Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment())
     }
+}
+
+fn plugins(path: &PathBuf) -> Vec<PluginEntry> {
+    let mut plugins = vec![];
+    if let Ok(dir) = read_dir(path) {
+        for file in dir {
+            if let Ok(file) = file {
+                if let Ok(output) = Command::new(file.path()).output() {
+                    match PluginEntry::try_from(
+                        &output.stdout,
+                        &file.path(),
+                    ) {
+                        Ok(plugin) => {
+                            if !plugins.contains(&plugin) {
+                                plugins.push(plugin);
+                            }
+                        }
+                        Err(e) => println!("Had a problem loading plugin at {}: {:?}", file.path().display(), e)
+                    }
+                }
+            }
+        }
+    }
+    plugins
+}
+
+fn pipelines(config: &Config, plugins: &Vec<PluginEntry>) -> Vec<Pipeline>{
+    let pipelines = {
+        let pipelines = &config.pipelines;
+
+        match validate(&pipelines, plugins) {
+            Ok(()) => {},
+            Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
+        }
+
+        pipelines.clone()
+        
+    };
+    pipelines
+}
+
+fn validate(pipelines: &Vec<Pipeline>, plugins: &Vec<PluginEntry>) -> Result<(), String> {
+    for pipeline in pipelines {
+        for action in &pipeline.actions {
+            println!("Validating we have a plugin configured for '{}'", action.plugin);
+            if !plugins.iter().any(|p| p.name == action.plugin) {
+                return Err(format!("{} has no matching plugin", action.plugin));
+            }
+        }
+    }
+    Ok(())
 }

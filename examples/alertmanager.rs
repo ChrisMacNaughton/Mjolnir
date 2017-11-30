@@ -149,25 +149,7 @@ struct PAlert {
     // startsAt: String,
     // endsAt: String,
 }
-// {
-//   "version": "4",
-//   "groupKey": <string>,    // key identifying the group of alerts (e.g. to deduplicate)
-//   "status": "<resolved|firing>",
-//   "receiver": <string>,
-//   "groupLabels": <object>,
-//   "commonLabels": <object>,
-//   "commonAnnotations": <object>,
-//   "externalURL": <string>,  // backlink to the Alertmanager.
-//   "alerts": [
-//     {
-//       "labels": <object>,
-//       "annotations": <object>,
-//       "startsAt": "<rfc3339>",
-//       "endsAt": "<rfc3339>"
-//     },
-//     ...
-//   ]
-// }
+
 // Don't touch anything below here!
 
 fn main() {

@@ -29,6 +29,7 @@ enum OperationType {
     REMEDIATION_RESULT = 5;
     ACK = 6;
     NACK = 7;
+    RELOAD=8;
 }
 
 message Operation {
