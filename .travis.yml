@@ -56,3 +56,21 @@ after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
     cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
   fi
+
+# Could do this to provide trusty debs
+
+# before_deploy: |
+#   test $TRAVIS_TEST_RESULT = 0 \
+#   test $TRAVIS_RUST_VERSION = "stable" \
+#   test $TRAVIS_TAG \
+#   cargo install cargo-deb &&
+#   cargo deb
+
+# deploy:
+#   provider: releases
+#   api_key: "GITHUB OAUTH TOKEN"
+#   file: "/target/release/
+#   skip_cleanup: true
+#   on:
+#     tags: true
+#     rust: stable
