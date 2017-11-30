@@ -8,13 +8,12 @@ set -euo pipefail
 
 distro=$1
 
+path=`pwd`
 echo "About to launch $distro container"
 container="mjolnir-build-$RANDOM"
 mkdir -p /tmp/$container
 
 function finish {
-    echo "Skipping cleanup"
-    exit 0
     echo "Cleaning up: ($?)!"
     lxc delete -f $container
     rm -rf /tmp/$container
@@ -43,7 +42,7 @@ if [ "$distro" = "trusty" ]
 fi
 if [ "$distro" = "xenial" ]
     then
-    packages="$packages libzmq5 libzmq5-dev"
+    packages="$packages libzmq5-dev"
 fi
 lxc exec --verbose $container -- /bin/sh -c "apt-get update -q"
 lxc exec --verbose $container -- /bin/sh -c "apt-get install -yq $packages"
@@ -64,6 +63,6 @@ lxc file pull -r $container/build/target/debian /tmp/$container
 
 cd /tmp/$container; find debian -regex ".*mjolnir_.*.deb" -exec rename "s/mjolnir_(.*).deb/$(echo $distro)_mjolnir_\$1.deb/g" {}  \;
 
-cp /tmp/$container/debian/*.deb .
+cp /tmp/$container/debian/*.deb $path
 
 finish
