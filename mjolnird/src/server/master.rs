@@ -59,7 +59,7 @@ mod tests {
         let config = Config::from_args(args);
         let (mut master, _receiver) = Master::new(config.clone());
         master = master.with_plugin_path(config.plugin_path.clone());
-        master.plugins.push(PluginEntry {
+        master.plugins.write().unwrap().push(PluginEntry {
             name: "clean_disk".into(),
             author: "test author".into(),
             version: "test version".into(),
@@ -68,9 +68,8 @@ mod tests {
             remediations: vec![],
             path: PathBuf::from("/bin/echo"),
         });
-        master = master
-            .load_pipelines();
-        assert!(master.pipelines.len() == 1);
+        master.load_pipelines();
+        assert!(master.pipelines.read().unwrap().len() == 1);
     }
 
     #[test]
@@ -115,8 +114,8 @@ mod tests {
         let (mut master, receiver) = Master::new(config);
 
 
-        master = master.load_plugins()
-            .load_pipelines();
+        master = master.load_plugins();
+        master.load_pipelines();
 
         let result = RemediationResult {
             result: Ok(()),
