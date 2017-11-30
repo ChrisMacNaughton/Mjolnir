@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use log::LogLevel;
 use toml;
 use xdg;
 
@@ -161,6 +162,7 @@ pub struct Config {
     pub key_path: PathBuf,
     pub pipelines: Vec<Pipeline>,
     pub default_remediation: Option<Remediation>,
+    pub log_level: LogLevel,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -289,7 +291,7 @@ impl<'a, 'b> Config {
             }
         };
 
-        println!("Trying to load config from {}", path.display());
+        info!("Trying to load config from {}", path.display());
 
         let config_raw = match File::open(path) {
             Ok(mut f) => {
@@ -318,7 +320,7 @@ impl<'a, 'b> Config {
                 },
             )
         }.expect("Couldn't determine plugin path, please specify one");
-        // // println!("XDG_DATA_DIRS: {:?}", path);
+        // // info!("XDG_DATA_DIRS: {:?}", path);
         let key_path: PathBuf = if let Some(p) = config_file.key_path {
             Some(PathBuf::from(p))
         } else {
@@ -406,6 +408,12 @@ impl<'a, 'b> Config {
             pipelines: root.pipelines,
             default_remediation: config_file.default_remediation,
             secret: config_file.secret.expect("A shared secret is required"),
+            log_level: match matches.occurrences_of("debug") {
+                0 => LogLevel::Warn,
+                1 => LogLevel::Info,
+                2 => LogLevel::Debug,
+                3 | _ => LogLevel::Trace,
+            }
         }
     }
 }
