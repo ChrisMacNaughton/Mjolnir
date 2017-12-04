@@ -65,7 +65,6 @@ pub fn reload<T: AsRef<str>>(master: &Master, pubkey: T) {
     match connect(&master.ip, master.zmq_port, pubkey.as_ref()){
         Ok(socket) => {
             let mut o = Operation::new();
-            // println!("Creating PING");
             println!("Asking {} to reload", master.ip);
             o.set_operation_type(OpType::RELOAD);
 
@@ -105,7 +104,7 @@ fn server_pubkey(config: &Config) -> String {
 }
 
 fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
-    // println!("Starting zmq sender with version({:?})", zmq::version());
+    // info!("Starting zmq sender with version({:?})", zmq::version());
     let context = zmq::Context::new();
     let requester = context.socket(zmq::REQ)?;
     let client_keypair = zmq::CurveKeyPair::new()?;
@@ -113,13 +112,13 @@ fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
     requester.set_curve_serverkey(server_publickey)?;
     requester.set_curve_publickey(&client_keypair.public_key)?;
     requester.set_curve_secretkey(&client_keypair.secret_key)?;
-    // println!("Connecting to tcp://{}:{}", host, port);
+    // info!("Connecting to tcp://{}:{}", host, port);
     assert!(
         requester
             .connect(&format!("tcp://{}:{}", host, port))
             .is_ok()
     );
-    // println!("Client mechanism: {:?}", requester.get_mechanism());
+    // info!("Client mechanism: {:?}", requester.get_mechanism());
 
     Ok(requester)
 }
@@ -137,7 +136,7 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         let _ = file.read_to_string(&mut key);
         s.set_curve_secretkey(&key)?;
     } else {
-        // println!("Creating new curve keypair");
+        // info!("Creating new curve keypair");
         let keypair = zmq::CurveKeyPair::new()?;
         s.set_curve_secretkey(&keypair.secret_key)?;
 
@@ -147,8 +146,8 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         f.write(keypair.secret_key.as_bytes()).unwrap();
     }
 
-    // println!("Server mechanism: {:?}", s.get_mechanism());
-    // println!("Curve server: {:?}", s.is_curve_server());
+    // info!("Server mechanism: {:?}", s.get_mechanism());
+    // info!("Curve server: {:?}", s.is_curve_server());
 
     Ok(())
 }
@@ -160,35 +159,35 @@ fn zmq_listen(
     config: &Arc<RwLock<Config>>,
     callback: Box<Fn(Operation, &Socket) -> ZmqResult<()>>,
 ) -> ZmqResult<()> {
-    println!("Starting zmq listener with version({:?})", zmq::version());
+    trace!("Starting zmq listener with version({:?})", zmq::version());
     let context = zmq::Context::new();
     let mut responder = context.socket(zmq::REP)?;
     {
         let config = config.read().expect("Couldn't setup zmq bind, need read lock on config");
-        println!("Listening on {}", config.zmq_address());
+        trace!("Listening on {}", config.zmq_address());
         // Fail to start if this fails
         setup_curve(&mut responder, &config)?;
         assert!(responder.bind(&format!("tcp://{}:{}", config.bind_ip, config.zmq_port)).is_ok());
     }
-    println!("Going into the zmq loop");
+    trace!("Going into the zmq loop");
     let duration = Duration::from_millis(10);
     loop {
         match responder.recv_bytes(0) {
             Ok(msg) => {
-                // println!("Got msg len: {}", msg.len());
-                // println!("Parsing msg {:?} as hex", msg);
+                // info!("Got msg len: {}", msg.len());
+                // info!("Parsing msg {:?} as hex", msg);
                 let operation = match parse_from_bytes::<Operation>(&msg) {
                     Ok(bytes) => bytes,
                     Err(e) => {
-                        println!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
+                        warn!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
                         continue;
                     }
                 };
-                // println!("Operation is: {:?}", operation);
+                // info!("Operation is: {:?}", operation);
                 callback(operation, &responder)?
             }
             Err(e) => {
-                println!("Failed to recieve bytes: {:?}", e);
+                warn!("Failed to recieve bytes: {:?}", e);
                 return Err(e);
             }
         }
@@ -210,7 +209,7 @@ pub(crate) fn get_master_pubkey(master: &Master) -> Option<String> {
         match resp.read_to_string(&mut content) {
             Ok(_size_read) => Some(content),
             Err(e) => {
-                println!("error reading server's public key: {:?}", e);
+                info!("error reading server's public key: {:?}", e);
                 None
             }
         }
@@ -220,22 +219,22 @@ pub(crate) fn get_master_pubkey(master: &Master) -> Option<String> {
 }
 
 fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationResult {
-    // println!("Hook is: {:?}", hook);
+    // info!("Hook is: {:?}", hook);
     let mut cmd = Command::new(&plugin.path);
     cmd.arg(format!("plugin={}", plugin.name));
     // cmd.arg(format!("body={}", body));
     for arg in &remediation.args {
-        // println!("Adding {} to {:?}", arg, cmd);
+        // info!("Adding {} to {:?}", arg, cmd);
         cmd.arg(&arg);
     }
     if let Some(ref alert) = remediation.alert {
         for arg in &alert.args {
-            // println!("Adding {} to {:?}", arg, cmd);
+            // info!("Adding {} to {:?}", arg, cmd);
             cmd.arg(&arg);
         }
     }
     cmd.arg(format!("remediation={}", encode(&remediation.clone().write_to_bytes().unwrap())));
-    // println!("Command is: {:?}", cmd);
+    // info!("Command is: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {
@@ -262,7 +261,7 @@ fn plugins(path: &PathBuf) -> Vec<PluginEntry> {
                                 plugins.push(plugin);
                             }
                         }
-                        Err(e) => println!("Had a problem loading plugin at {}: {:?}", file.path().display(), e)
+                        Err(e) => warn!("Had a problem loading plugin at {}: {:?}", file.path().display(), e)
                     }
                 }
             }
@@ -289,7 +288,7 @@ fn pipelines(config: &Config, plugins: &Vec<PluginEntry>) -> Vec<Pipeline>{
 fn validate(pipelines: &Vec<Pipeline>, plugins: &Vec<PluginEntry>) -> Result<(), String> {
     for pipeline in pipelines {
         for action in &pipeline.actions {
-            println!("Validating we have a plugin configured for '{}'", action.plugin);
+            debug!("Validating we have a plugin configured for '{}'", action.plugin);
             if !plugins.iter().any(|p| p.name == action.plugin) {
                 return Err(format!("{} has no matching plugin", action.plugin));
             }

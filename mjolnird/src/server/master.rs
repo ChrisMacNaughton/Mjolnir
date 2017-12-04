@@ -177,7 +177,6 @@ impl Agent {
         match connect(&self.ip.to_string(), self.port, &self.public_key){
             Ok(socket) => {
                 let mut o = Operation::new();
-                // println!("Creating PING");
                 o.set_operation_type(OpType::REMEDIATE);
                 let mut remediation = remediation.clone();
                 remediation.target = alert.source.clone();
@@ -187,10 +186,10 @@ impl Agent {
                 let msg = Message::from_slice(&encoded).unwrap();
                 match socket.send_msg(msg, 0) {
                     Ok(_s) => {},
-                    Err(e) => println!("Problem sending remediation request: {:?}", e)
+                    Err(e) => warn!("Problem sending remediation request: {:?}", e)
                 }
             }
-            Err(e) => println!("problem connecting to socket: {:?}", e),
+            Err(e) => warn!("problem connecting to socket: {:?}", e),
         }
     }
 }
@@ -226,11 +225,11 @@ impl Service for Master {
 }
 
 fn process_webhook(hook: PluginEntry, body: String) -> Result<Vec<u8>, String> {
-    // println!("Hook is: {:?}", hook);
+    // info!("Hook is: {:?}", hook);
     let mut cmd = Command::new(hook.path);
     cmd.arg(format!("plugin={}", hook.name));
     cmd.arg(format!("body={}", body));
-    // println!("About to run command: {:?}", cmd);
+    trace!("About to run command: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             // match String::from_utf8(output.stdout) {
@@ -260,7 +259,7 @@ impl Master {
     }
 
     fn handle_webhook(&self, data: Vec<u8>) {
-        // println!("About to parse {:?}", data);
+        // info!("About to parse {:?}", data);
         let result = RemediationResult::from_bytes(&data);
         for alert in result.alerts {
             let _ = self.sender.send(MasterAction::Alert(alert));
@@ -277,13 +276,11 @@ impl Master {
             Error = hyper::Error,
         >,
     > {
-        // println!("Responding to webook {} at {}", name, req.path());
-        // let plugins = plugins.clone();
         let hook =  {
             let plugins = match self.plugins.read() {
                 Ok(p) => p,
                 Err(e) => {
-                    println!("Error taking RwLock: {:?}", e);
+                    info!("Error taking RwLock: {:?}", e);
                     return internal_server_error();
                 }
             };
@@ -294,7 +291,6 @@ impl Master {
                 .nth(0)
                 .map(|p| p.clone())
         };
-        // let hook: Option<PluginEntry> = *hook.clone();
         let sender = self.sender.clone();
         Box::new(req.body().concat2().map(move |body| {
             // let plugins = plugins.clone();
@@ -344,21 +340,20 @@ impl Master {
                         match connect(&agent.hostname, agent.port, &agent.public_key){
                             Ok(socket) => {
                                 let mut o = Operation::new();
-                                // println!("Creating PING");
                                 o.set_operation_type(OpType::PING);
 
                                 let encoded = o.write_to_bytes().unwrap();
                                 let msg = Message::from_slice(&encoded).unwrap();
                                 match socket.send_msg(msg, 0) {
                                     Ok(_s) => {},
-                                    Err(e) => println!("Problem sending ping: {:?}", e)
+                                    Err(e) => warn!("Problem sending ping: {:?}", e)
                                 }
                             }
-                            Err(e) => println!("problem connecting to socket: {:?}", e),
+                            Err(e) => warn!("problem connecting to socket: {:?}", e),
                         }
                     }
                 } else {
-                    println!("Failed to lock agents mutex for PING");
+                    warn!("Failed to lock agents mutex for PING");
                 }
             
                 thread::sleep(ping_duration);
@@ -388,46 +383,47 @@ impl Master {
         let pipelines = match self.pipelines.read() {
             Ok(p) => p,
             Err(e) => {
-                println!("Error taking RwLock on pipelines: {:?}", e);
+                warn!("Error taking RwLock on pipelines: {:?}", e);
                 return;
             }
         };
         if let Some(pipeline) = pipelines.iter().find(|p| p.trigger == alert) {
-            println!("Remediating {:?}", alert);
+            info!("Remediating {:?}", alert);
             if let Some(source) = alert.source.clone() {
                 if let Ok(agents) = self.agents.try_lock() {
                     if let Some(agent) = agents.iter().find(|a| a.hostname == source || a.ip.to_string() == source).clone() {
-                        println!("Have an agent: {:?}", agent);
+                        info!("Have an agent: {:?}", agent);
                         if let Some(ref action) = pipeline.actions.get(alert.next_remediation as usize) {
                             agent.remediate(alert, action);
                         } else {
                             let res = self.remediate_default(alert);
                             match res.result {
                                 Ok(()) => {},
-                                Err(e) => println!("Default remediation Failed: {:?}", e),
+                                Err(e) => error!("Default remediation Failed: {:?}", e),
                             }
                             
                         }
                     }
                 } else {
-                    println!("Failed to get lock");
+                    warn!("Failed to get lock");
                     return;
                 }
             } else {
-                println!("PENDING : Handle alerts with no target");
+                // TODO : process alerts that have no target
+                info!("PENDING : Handle alerts with no target");
                 let res = self.remediate_default(alert);
                 match res.result {
                     Ok(()) => {},
-                    Err(e) => println!("Default remediation Failed: {:?}", e),
+                    Err(e) =>error!("Default remediation Failed: {:?}", e),
                 }
             }
         } else {
 
-            println!("No pipeline configured for {}/{:?}, falling back to default", alert.alert_type, alert.name);
+            warn!("No pipeline configured for {}/{:?}, falling back to default", alert.alert_type, alert.name);
             let res = self.remediate_default(alert);
             match res.result {
                 Ok(()) => {},
-                Err(e) => println!("Default remediation Failed: {:?}", e),
+                Err(e) => error!("Default remediation Failed: {:?}", e),
             }
         }
 
@@ -462,7 +458,7 @@ impl Master {
             default.alert =Some(alert);
             run_plugin(&plugin, &default)
         } else {
-            println!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
+            warn!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
             RemediationResult::new().err(format!("No default remediation configured")).with_alert(alert.increment())
         }
     }
@@ -481,7 +477,6 @@ impl Master {
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
-                        // println!("Creating pong");
                         o.set_operation_type(OpType::PONG);
                         o.set_ping_id(operation.get_ping_id());
                         let encoded = o.write_to_bytes().unwrap();
@@ -493,7 +488,7 @@ impl Master {
                         match boxed_config.read() {
                             Ok(config) => {
                                 if register.secret != config.secret {
-                                    println!("Bad agent registration: {:?}", register);
+                                    warn!("Bad agent registration: {:?}", register);
                                     let mut o = Operation::new();
                                     o.set_operation_type(OpType::NACK);
                                     let encoded = o.write_to_bytes().unwrap();
@@ -519,16 +514,16 @@ impl Master {
                                             }
                                         }
                                         if !updated {
-                                            println!("Adding a new agent: {:?}!", agent);
+                                            debug!("Adding a new agent: {:?}!", agent);
                                             agents.push(agent);
                                         }
 
-                                        println!("#{} Agents", agents.len());
+                                        debug!("#{} Agents", agents.len());
                                     }
                                 }
                             },
                             Err(e) => {
-                                println!("Failed to get write lock: {:?}", e);
+                                warn!("Failed to get write lock: {:?}", e);
                                 return Ok(());
                             }
                         };
@@ -553,38 +548,38 @@ impl Master {
                     }
                     OpType::RELOAD => {
                         ack(responder)?;
-                        println!("Received reload request");
+                        debug!("Received reload request");
                         loop {
                             match boxed_config.try_write() {
                                 Ok(mut config) => {
                                     *config = Config::get_config();
-                                    println!("Reloaded config!");
+                                    debug!("Reloaded config!");
                                     match boxed_plugins.try_write() {
                                         Ok(mut loaded_plugins) => {
                                             // *loaded_plugins = plugins(config;
                                             *loaded_plugins = plugins(&config.plugin_path);
-                                            println!("Reloaded plugins!");
+                                            debug!("Reloaded plugins!");
                                             match boxed_pipelines.try_write() {
                                                 Ok(mut loaded_pipelines) => {
                                                     // *loaded_plugins = plugins(config;
                                                     // *loaded_pipelines = plugins(&config.plugin_path);
                                                     *loaded_pipelines = pipelines(&config, &*loaded_plugins);
-                                                    println!("Reloaded pipelines!");
+                                                    debug!("Reloaded pipelines!");
                                                 },
-                                                Err(e) => println!("Failed to get write lock on pipelines: {:?}", e),
+                                                Err(e) => warn!("Failed to get write lock on pipelines: {:?}", e),
                                             }
                                         },
-                                        Err(e) => println!("Failed to get write lock on plugins: {:?}", e),
+                                        Err(e) => warn!("Failed to get write lock on plugins: {:?}", e),
                                     }
                                     break
                                 },
-                                Err(e) => println!("Failed to get write lock: {:?}", e),
+                                Err(e) => warn!("Failed to get write lock: {:?}", e),
                             }
                             thread::sleep(Duration::from_millis(20));
                         }
                     }
                     _ => {
-                        println!("Not quite handling {:?} yet", operation);
+                        debug!("Not quite handling {:?} yet", operation);
                         ack(responder)?
                     }
                 }
@@ -608,7 +603,7 @@ impl Master {
                     let config = match self.config.read() {
                         Ok(c) => c,
                         Err(e) => {
-                            println!("Failed to get read lock: {:?}", e);
+                            warn!("Failed to get read lock: {:?}", e);
                             return internal_server_error()
                         },
                     };
@@ -627,7 +622,7 @@ impl Master {
                             let config = match self.config.read() {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    println!("Failed to get read lock: {:?}", e);
+                                    warn!("Failed to get read lock: {:?}", e);
                                     return internal_server_error()
                                 },
                             };
@@ -680,13 +675,13 @@ impl Master {
                 match self.plugins.read() {
                     Ok(plugins) => self.pipelines = Arc::new(RwLock::new(pipelines(&c, &plugins))),
                     Err(e) => {
-                        println!("Failed to get RwLock on plugins: {:?}", e)
+                        warn!("Failed to get RwLock on plugins: {:?}", e)
                     }
                 }
                 
             },
             Err(e) => {
-                println!("Failed to get RwLock: {:?}", e);
+                warn!("Failed to get RwLock: {:?}", e);
             }
         }
         self
@@ -767,7 +762,7 @@ fn not_found(req: &Request) -> Box<
         Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
     >> {
-        println!("Received request: {} {}", req.method(), req.path());;
+        info!("Received request: {} {}", req.method(), req.path());
         Box::new(futures::future::ok(Response::new()
             .with_status(StatusCode::NotFound)
             .with_header(ContentLength(0))))
@@ -775,7 +770,6 @@ fn not_found(req: &Request) -> Box<
 
 fn ack(responder: &Socket) -> ZmqResult<()>{
     let mut o = Operation::new();
-    // println!("Creating ack for alert");
     o.set_operation_type(OpType::ACK);
 
     let encoded = o.write_to_bytes().unwrap();

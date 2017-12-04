@@ -60,17 +60,16 @@ impl Agent {
                     match connect(&master.ip, master.zmq_port, &server_key){
                         Ok(socket) => {
                             let mut o = Operation::new();
-                            // println!("Creating PING");
                             o.set_operation_type(OpType::PING);
 
                             let encoded = o.write_to_bytes().unwrap();
                             let msg = Message::from_slice(&encoded).unwrap();
                             match socket.send_msg(msg, 0) {
                                 Ok(_s) => {},
-                                Err(e) => println!("Problem snding ping: {:?}", e)
+                                Err(e) => warn!("Problem snding ping: {:?}", e)
                             }
                         }
-                        Err(e) => println!("problem connecting to socket: {:?}", e),
+                        Err(e) => warn!("problem connecting to socket: {:?}", e),
                     }
                 }
             
@@ -91,7 +90,6 @@ impl Agent {
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
-                        // println!("Creating pong");
                         o.set_operation_type(OpType::PONG);
                         o.set_ping_id(operation.get_ping_id());
                         let encoded = o.write_to_bytes().unwrap();
@@ -100,7 +98,6 @@ impl Agent {
                     }
                     OpType::REMEDIATE => {
                         let mut o = Operation::new();
-                        // println!("Creating ack for {:?}", operation.get_operation_type());
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
@@ -108,10 +105,10 @@ impl Agent {
                         responder.send_msg(msg, 0)?;
 
                         let remediation: Remediation = operation.get_remediate().into();
-                        println!("About to try to remediate {:?}", remediation);
+                        debug!("About to try to remediate {:?}", remediation);
                         let res = remediate(remediation, &config, &masters);
 
-                        println!("Result: {:?}", res);
+                        debug!("Result: {:?}", res);
 
                         match connect(&masters[0].ip, masters[0].zmq_port, &server_pubkey){
                             Ok(socket) => {
@@ -122,18 +119,17 @@ impl Agent {
                                 let msg = Message::from_slice(&encoded).unwrap();
                                 match socket.send_msg(msg, 0) {
                                     Ok(_s) => {},
-                                    Err(e) => println!("Problem sending result: {:?}", e)
+                                    Err(e) => warn!("Problem sending result: {:?}", e)
                                 }
                             }
-                            Err(e) => println!("problem connecting to socket: {:?}", e),
+                            Err(e) => warn!("problem connecting to socket: {:?}", e),
                         }
                         
                     }
                     _ => {
-                        println!("Not quite handling {:?} yet", operation);
+                        debug!("Not quite handling {:?} yet", operation);
 
                         let mut o = Operation::new();
-                        // println!("Creating ack for {:?}", operation.get_operation_type());
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
@@ -152,13 +148,13 @@ impl Agent {
         let socket = match connect(&master.ip, master.zmq_port, &self.server_pubkey) {
             Ok(s) => s,
             Err(e) => {
-                println!("Error connecting to socket: {:?}", e);
+                error!("Error connecting to socket: {:?}", e);
                 return Err(e);
             }
         };
 
         let mut o = Operation::new();
-        println!("Creating  operation request");
+        debug!("Creating  operation request");
         o.set_operation_type(OpType::REGISTER);
         let register = Register::new(
             self.config.bind_ip.clone(),
@@ -170,36 +166,36 @@ impl Agent {
         o.set_register(register.into());
         let encoded = o.write_to_bytes().unwrap();
         let msg = Message::from_slice(&encoded)?;
-        println!("Sending message");
+        trace!("Sending message");
         socket.send_msg(msg, 0)?;
         match socket.recv_bytes(0) {
             Ok(msg) => {
-                println!("Got msg len: {}", msg.len());
-                println!("Parsing msg {:?} as hex", msg);
+                trace!("Got msg len: {}", msg.len());
+                trace!("Parsing msg {:?} as hex", msg);
                 let operation = match parse_from_bytes::<Operation>(&msg) {
                     Ok(bytes) => bytes,
                     Err(e) => {
-                        println!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
+                        warn!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
                         // TODO: Proper error handling
                         return Ok(());
                     }
                 };
-                println!("Operation is: {:?}", operation);
+                debug!("Operation is: {:?}", operation);
                 match operation.get_operation_type() {
                     OpType::ACK => {
-                        println!("got our ACK!");
+                        trace!("got our ACK!");
                     }
                     OpType::NACK => {
-                        println!("We supplied a bad secret");
+                        error!("We supplied a bad secret");
                         panic!("Misconfigured shared secret");
                     }
                     _ => {
-                        println!("Not quite handling {:?} yet", operation);
+                        debug!("Not quite handling {:?} yet", operation);
                     }
                 }
             }
             Err(e) => {
-                println!("Failed to recieve bytes: {:?}", e);
+                warn!("Failed to recieve bytes: {:?}", e);
                 return Err(e);
             }
         }
