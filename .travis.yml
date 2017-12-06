@@ -69,6 +69,8 @@ jobs:
       - sudo lxd waitready --timeout 60
       - sudo lxd init --auto --trust-password=the-password --network-port=8443 --network-address='[::]'
       - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
+      - sudo usermod -a -G lxd travis
+      - sudo newgrp lxd
       - VERBOSE=true tests/run.sh
 
 after_success: |
