@@ -51,13 +51,13 @@ before_script: |
   fi
 
 stages:
-  - unit
+  - test
   - name: functional
     if: env(TRAVIS_RUST_VERSION) = stable
 
 jobs:
   include:
-    - stage: unit
+    - stage: test
       script: cargo test --all --verbose
     - stage: functional
       only:
