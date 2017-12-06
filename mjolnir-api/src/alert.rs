@@ -1,5 +1,7 @@
 use super::proto::plugin;
 
+use uuid::Uuid;
+
 use protobuf;
 
 use {Message, RepeatedField, parse_from_bytes};
@@ -114,6 +116,12 @@ pub struct Alert {
     /// Master managed index into pipeline
     #[serde(default="zero")]
     pub next_remediation: u64,
+    #[serde(default="uuid")]
+    pub uuid: Uuid,
+}
+
+fn uuid() -> Uuid {
+    Uuid::new_v4()
 }
 
 fn empty() -> Vec<String> {
@@ -133,6 +141,7 @@ impl Default for Alert {
             source: None,
             args: vec![],
             next_remediation: 0,
+            uuid: Uuid::new_v4(),
         }
     }
 }
@@ -159,6 +168,7 @@ impl<'a> From<&'a plugin::Alert> for Alert {
             },
             args: alert.get_args().into(),
             next_remediation: alert.get_next_remediation(),
+            uuid: alert.get_uuid().into(),
         }
     }
 }
@@ -185,6 +195,7 @@ impl<'a> From<&'a Alert> for plugin::Alert {
         }
         a.set_args(repeated_args);
         a.set_next_remediation(alert.next_remediation);
+        a.set_uuid(alert.uuid.into());
         // d.set_alerts()
         a
     }
@@ -216,13 +227,12 @@ impl Alert {
     }
 
     pub fn new<T: Into<String>>(alert_type: T) -> Alert {
-        Alert {
-            alert_type: alert_type.into(),
-            name: None,
-            source: None,
-            args: vec![],
-            next_remediation: 0
-        }
+        Alert::default().with_alert_type(alert_type)
+    }
+
+    pub fn with_alert_type<T: Into<String>>(mut self, alert_type: T) -> Self {
+        self.alert_type = alert_type.into();
+        self
     }
 
     pub fn with_name<T: Into<String>>(mut self, name: T) -> Self {

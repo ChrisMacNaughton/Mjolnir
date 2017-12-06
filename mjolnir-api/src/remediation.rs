@@ -1,4 +1,5 @@
 use protobuf;
+use uuid::Uuid;
 
 use plugin::{self, RemediationRequest};
 use alert::Alert;
@@ -23,6 +24,7 @@ mod tests {
                     args: vec![],
                     next_remediation: 0,
             }),
+            uuid: uuid(),
         };
 
         let request: RemediationRequest = remediation.clone().into();
@@ -40,6 +42,7 @@ mod tests {
             target: None,
             args: vec!["body".into()],
             alert: None,
+            uuid: uuid(),
         };
 
         let request: RemediationRequest = remediation.clone().into();
@@ -57,6 +60,7 @@ mod tests {
             target: None,
             args: vec!["body".into()],
             alert: None,
+            uuid: uuid(),
         }];
 
         let repeated = Remediation::vec_to_repeated(&r);
@@ -77,6 +81,12 @@ pub struct Remediation {
     #[serde(default="empty")]
     pub args: Vec<String>,
     pub alert: Option<Alert>,
+    #[serde(default="uuid")]
+    pub uuid: Uuid,
+}
+
+fn uuid() -> Uuid {
+    Uuid::new_v4()
 }
 
 fn empty() -> Vec<String> {
@@ -100,6 +110,7 @@ impl<'a> From<&'a RemediationRequest> for Remediation {
             },
             args: remediation.get_args().into(),
             alert: alert,
+            uuid: remediation.get_uuid().into(),
         }
     }
 }
@@ -132,11 +143,27 @@ impl<'a> From<&'a Remediation> for RemediationRequest {
         if let Some(ref alert) = remediation.alert {
             a.set_alert(alert.clone().into());
         }
+        a.set_uuid(remediation.uuid.into());
         a
     }
 }
 
 impl Remediation {
+    pub fn new<T: Into<String>>(name: T) -> Remediation {
+        Remediation {
+            uuid: uuid(),
+            plugin: name.into(),
+            target: None,
+            args: Vec::with_capacity(4),
+            alert: None,
+        }
+    }
+
+    pub fn with_arg<T: Into<String>>(mut self, arg: T) -> Self {
+        self.args.push(arg.into());
+        self
+    }
+
     pub fn vec_to_repeated(remediations: &Vec<Remediation>) -> RepeatedField<RemediationRequest> {
         let mut repeated_remediations = RepeatedField::default();
         for remediation in remediations {

@@ -1,4 +1,5 @@
 use protobuf;
+use uuid::Uuid;
 
 use {Message, RepeatedField, parse_from_bytes};
 
@@ -13,6 +14,7 @@ mod tests {
         let result = RemediationResult {
             result: Ok(()),
             alerts: vec![],
+            uuid: Uuid::new_v4(),
         };
 
         let plugin_result: plugin::RemediationResult = result.clone().into();
@@ -62,6 +64,7 @@ use plugin;
 pub struct RemediationResult {
     pub result: Result<(), String>,
     pub alerts: Vec<Alert>,
+    pub uuid: Uuid,
 }
 
 impl RemediationResult {
@@ -69,6 +72,7 @@ impl RemediationResult {
         RemediationResult {
             result: Ok(()),
             alerts: vec![],
+            uuid: Uuid::new_v4(),
         }
     }
 
@@ -122,6 +126,7 @@ impl<'a> From<&'a plugin::RemediationResult> for RemediationResult {
             alerts: result.get_alerts().iter()
                 .map(|alert| alert.into())
                 .collect(),
+            uuid: result.get_uuid().into(),
         }
     }
 }
@@ -150,6 +155,7 @@ impl From<RemediationResult> for plugin::RemediationResult {
             alerts.push(alert.into());
         }
         a.set_alerts(alerts);
+        a.set_uuid(result.uuid.into());
         a
     }
 }

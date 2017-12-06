@@ -29,12 +29,16 @@ fn generate_alerts() -> Vec<Alert> {
 
 fn generate_actions() -> Vec<Remediation> {
     // Your actions here
-    vec![Remediation {
-        plugin: "clean_disk".into(),
-        target: None,
-        args: vec!["path".into()],
-        alert: None,
-    }]
+    vec![
+        Remediation::new("clean_disk")
+            .with_arg("path")
+    ]
+    // vec![Remediation {
+    //     plugin: "clean_disk".into(),
+    //     target: None,
+    //     args: vec!["path".into()],
+    //     alert: None,
+    // }]
 }
 
 fn list_plugins() -> HashMap<String, fn(HashMap<String, String>) -> RemediationResult> {

@@ -1,5 +1,7 @@
 use mjolnir_api::{Alert, Remediation};
 
+use uuid::Uuid;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -35,8 +37,14 @@ pub struct Pipeline {
     pub trigger: Alert,
     #[serde(default="empty")]
     pub actions: Vec<Remediation>,
+    #[serde(default="uuid")]
+    uuid: Uuid,
 }
 
 fn empty() -> Vec<Remediation> {
     vec![]
+}
+
+fn uuid() -> Uuid {
+    Uuid::new_v4()
 }

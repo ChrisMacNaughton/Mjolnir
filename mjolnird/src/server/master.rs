@@ -131,7 +131,9 @@ mod tests {
                     source: Some("test".into()),
                     args: vec!["testarg=value".into()],
                     next_remediation: 0,
+                    uuid: Uuid::new_v4(),
                 }],
+            uuid: Uuid::new_v4(),
         };
 
         let plugin_result: plugin::RemediationResult = result.clone().into();
@@ -149,6 +151,7 @@ mod tests {
                     source: Some("test".into()),
                     args: vec!["testarg=value".into()],
                     next_remediation: 0,
+                    uuid: Uuid::new_v4(),
                 });
             },
             _ => unreachable!()
@@ -405,7 +408,7 @@ impl Master {
                             let res = self.remediate_default(alert);
                             match res.result {
                                 Ok(()) => {},
-                                Err(e) => error!("Default remediation Failed: {:?}", e),
+                                Err(e) => warn!("Default remediation Failed: {:?}", e),
                             }
                             
                         }
@@ -420,7 +423,7 @@ impl Master {
                 let res = self.remediate_default(alert);
                 match res.result {
                     Ok(()) => {},
-                    Err(e) =>error!("Default remediation Failed: {:?}", e),
+                    Err(e) =>warn!("Default remediation Failed: {:?}", e),
                 }
             }
         } else {
@@ -429,7 +432,7 @@ impl Master {
             let res = self.remediate_default(alert);
             match res.result {
                 Ok(()) => {},
-                Err(e) => error!("Default remediation Failed: {:?}", e),
+                Err(e) => warn!("Default remediation Failed: {:?}", e),
             }
         }
 
