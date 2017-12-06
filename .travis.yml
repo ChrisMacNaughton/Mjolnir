@@ -60,7 +60,6 @@ jobs:
     - stage: test
       script: cargo test --all --verbose
     - stage: functional
-      only:
       script:
       # setup dependencies here to save time on simpler test environments
       # sudo back to ourself to activate lxd group membership
