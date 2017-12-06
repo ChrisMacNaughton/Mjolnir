@@ -35,9 +35,7 @@ install:
 
 script:
   - cargo test --all --verbose
-  - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-      cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
-    fi
+  - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs --all; fi
 jobs:
   include:
     - stage: functional
