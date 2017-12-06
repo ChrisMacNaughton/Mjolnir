@@ -1,8 +1,10 @@
 #!/bin/bash
 
 set -euo pipefail
-. scripts/deps.sh
-. scripts/helpers.sh
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+
+. $SCRIPTPATH/../scripts/deps.sh
+. $SCRIPTPATH/../scripts/helpers.sh
 
 function finish {
     # echo "Cleaning up: ($?)!"
@@ -20,10 +22,22 @@ echo "Setting up testing environment"
 echo "=============================="
 echo
 
+if [ -n ${VERBOSE+x} ];
+then
+    echo "Spawning Master"
+fi
 lxc launch ubuntu:xenial master > /dev/null 2>&1
 sleep 5
+if [ -n ${VERBOSE+x} ];
+then
+    echo "Getting Master IP"
+fi
 master_ip=`lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
 export master_ip
+if [ -n ${VERBOSE+x} ];
+then
+    echo "Installing dependencies on Master"
+fi
 deps xenial master > /dev/null 2>&1
 
 if [ -n ${VERBOSE+x} ];
@@ -90,7 +104,7 @@ echo "====================================="
 echo
 
 failed=0
-for test_file in ./tests/test_*;
+for test_file in $SCRIPTPATH/test_*;
 do
     status=0
     res=$(. $test_file) || status=$? && true
