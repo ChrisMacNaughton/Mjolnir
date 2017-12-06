@@ -68,7 +68,9 @@ fn list_plugins() -> HashMap<String, fn(HashMap<String, String>) -> RemediationR
     // This is an exmaple of what the below macro expands into
     //
     // let mut plugins: HashMap<String, _> = HashMap::new();
-    // plugins.insert("alertmanager".into(), alertmanager as fn(HashMap<String, String>) -> RemediationResult);
+    // plugins.insert(
+    //    "alertmanager".into(), alertmanager as fn(HashMap<String, String>) -> RemediationResult
+    // );
     // plugins
 
     // Insert your plugins here!

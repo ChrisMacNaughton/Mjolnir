@@ -42,7 +42,8 @@ macro_rules! plugin_list {
         {
             let mut plugins: HashMap<String, _> = HashMap::new();
             $(
-                plugins.insert($name.into(), $call as fn(HashMap<String, String>) -> RemediationResult);
+                plugins.insert(
+                    $name.into(), $call as fn(HashMap<String, String>) -> RemediationResult);
             )*
             plugins
         }

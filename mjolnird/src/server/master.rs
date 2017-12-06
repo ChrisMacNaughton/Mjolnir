@@ -626,15 +626,14 @@ impl Master {
                                             debug!("Reloaded plugins!");
                                             match boxed_pipelines.try_write() {
                                                 Ok(mut loaded_pipelines) => {
-                                                    // *loaded_plugins = plugins(config;
-                                                    // *loaded_pipelines = plugins(&config.plugin_path);
                                                     *loaded_pipelines =
                                                         pipelines(&config, &*loaded_plugins);
                                                     debug!("Reloaded pipelines!");
                                                 }
                                                 Err(e) => {
                                                     warn!(
-                                                        "Failed to get write lock on pipelines: {:?}",
+                                                        "Failed to get write lock \
+                                                         on pipelines: {:?}",
                                                         e
                                                     )
                                                 }
