@@ -49,8 +49,25 @@ before_script: |
     make -j 2 && make install
     cd $TRAVIS_BUILD_DIR
   fi
-script:
-  - cargo test --all --verbose
+
+jobs:
+  - stage: test
+    script: cargo test --all --verbose
+  - stage: functional
+    script:
+    script:
+    # setup dependencies here to save time on simpler test environments
+    # sudo back to ourself to activate lxd group membership
+    - # Setup dependencies for LXD
+      sudo add-apt-repository -y ppa:ubuntu-lxc/lxd-stable;
+      sudo apt-get -qq update;
+      sudo apt-get -y install lxd;
+      sudo lxd init --auto;
+      sudo usermod -a -G lxd travis;
+      sudo su travis -c 'lxc network create lxdbr0';
+      sudo su travis -c 'lxc network attach-profile lxdbr0 default eth0';
+    - VERBOSE=true tests/run.sh
+    
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
