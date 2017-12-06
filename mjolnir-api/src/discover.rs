@@ -7,7 +7,8 @@ use {Alert, Remediation};
 mod tests {
     use super::*;
 
-    pub use protobuf::core::{Message, parse_from_bytes};
+    use protobuf::core::{Message, parse_from_bytes};
+    use uuid::Uuid;
 
     #[test]
     fn it_serializes_and_deserializes() {
@@ -33,12 +34,14 @@ mod tests {
                 source: Some("test".into()),
                 args: vec!["testarg=value".into()],
                 next_remediation: 0,
+                uuid: Uuid::new_v4(),
             })
             .with_remediation(Remediation {
                 plugin: "Test".into(),
                 target: None,
                 args: vec!["body".into()],
                 alert: None,
+                uuid: Uuid::new_v4(),
             });
 
         let request: proto::plugin::Discover = discover.clone().into();

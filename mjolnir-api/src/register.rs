@@ -18,6 +18,7 @@ mod tests {
             "awesome.local",
             "supersecret",
             "pub_key",
+            Uuid::new_v4(),
         );
 
         let request: proto::agent::Register = register.clone().into();
@@ -37,6 +38,7 @@ mod tests {
             "awesome.local",
             "supersecret",
             "pub_key",
+            Uuid::new_v4(),
         );
 
         let request: proto::agent::Register = register.clone().into();

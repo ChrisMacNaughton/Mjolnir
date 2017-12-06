@@ -22,6 +22,7 @@ mod tests {
             source: Some("test".into()),
             args: vec!["testarg=value".into()],
             next_remediation: 0,
+            uuid: uuid(),
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -60,6 +61,7 @@ mod tests {
             source: None,
             args: vec![],
             next_remediation: 0,
+            uuid: uuid(),
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -78,6 +80,7 @@ mod tests {
                 source: None,
                 args: vec![],
                 next_remediation: 0,
+                uuid: uuid(),
             },
         ];
 

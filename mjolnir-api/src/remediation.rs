@@ -23,6 +23,7 @@ mod tests {
                 source: Some("test".into()),
                 args: vec![],
                 next_remediation: 0,
+                uuid: uuid(),
             }),
             uuid: uuid(),
         };
