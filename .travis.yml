@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 dist: trusty
 
 language: rust
@@ -59,17 +59,14 @@ script: cargo test --all --verbose
 jobs:
   include:
     - stage: functional
-      script: |
-        # setup dependencies here to save time on simpler test environments
-        # sudo back to ourself to activate lxd group membership
-        sudo add-apt-repository -y ppa:ubuntu-lxc/lxd-stable;
-        sudo apt-get -qq update;
-        sudo apt-get -y install lxd;
-        sudo lxd init --auto;
-        sudo usermod -a -G lxd travis;
-        sudo su travis -c 'lxc network create lxdbr0';
-        sudo su travis -c 'lxc network attach-profile lxdbr0 default eth0';
-        VERBOSE=true tests/run.sh
+      script: 
+      - sudo apt-get install snapd
+      - sudo snap install lxd --channel=stable
+      - export PATH=/snap/bin/:${PATH}
+      - sudo lxd waitready --timeout 60
+      - sudo lxd init --auto --trust-password=the-password --network-port=8443 --network-address='[::]'
+      - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
+      - VERBOSE=true tests/run.sh
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
