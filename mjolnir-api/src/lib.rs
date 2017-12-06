@@ -3,11 +3,14 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate toml;
+extern crate uuid;
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub use protobuf::core::{Message, parse_from_bytes};
 pub use protobuf::repeated::RepeatedField;
+
+use uuid::Uuid;
 
 pub mod proto;
 // pub mod agent;
@@ -117,5 +120,25 @@ impl From<proto::agent::IpAddr> for IpAddr {
                 )
             },
         }
+    }
+}
+
+impl From<proto::agent::UUID> for Uuid {
+    fn from(uuid: proto::agent::UUID) -> Uuid {
+        (&uuid).into()
+    }
+}
+
+impl<'a>  From<&'a proto::agent::UUID> for Uuid {
+    fn from(uuid: &'a proto::agent::UUID) -> Uuid {
+        Uuid::parse_str(uuid.get_value()).unwrap()
+    }
+}
+
+impl Into<proto::agent::UUID> for Uuid {
+    fn into(self) -> proto::agent::UUID {
+        let mut uuid = proto::agent::UUID::new();
+        uuid.set_value(format!("{}", self));
+        uuid
     }
 }

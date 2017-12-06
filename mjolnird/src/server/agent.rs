@@ -25,7 +25,8 @@ use mjolnir_api::{Operation, OperationType as OpType, Register, parse_from_bytes
 
 use protobuf::Message as ProtobufMsg;
 
-use zmq::{Message, Result as ZmqResult};
+use uuid::Uuid;
+use zmq::{Message, Result as ZmqResult, Socket};
 
 use config::{Config, Master};
 use server::{connect, get_master_pubkey, run_plugin, server_pubkey, zmq_listen};
@@ -36,6 +37,7 @@ pub struct Agent {
     server_pubkey: String,
     my_pubkey: String,
     config: Config,
+    my_id: Uuid,
 }
 
 impl Agent {
@@ -47,6 +49,7 @@ impl Agent {
             my_pubkey: server_pubkey(&config).into(),
             config: config,
             server_pubkey: server_pubkey(&background_config),
+            my_id: Uuid::new_v4(),
         };
 
         let _ = fs::create_dir_all(&agent.config.plugin_path);
@@ -144,15 +147,54 @@ impl Agent {
 
     fn register(&self) -> ZmqResult<()> {
         // register with the master!
-        let master = &self.config.masters[0];
-        let socket = match connect(&master.ip, master.zmq_port, &self.server_pubkey) {
-            Ok(s) => s,
-            Err(e) => {
-                error!("Error connecting to socket: {:?}", e);
-                return Err(e);
-            }
-        };
+        for master in &self.config.masters {
+            let socket = match connect(&master.ip, master.zmq_port, &self.server_pubkey) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Error connecting to socket: {:?}", e);
+                    return Err(e);
+                }
+            };
+            // TODO : when we persist agents on the master side, this can bail on the first success
+            self.register_msg(&socket)?;
 
+            match socket.recv_bytes(0) {
+                Ok(msg) => {
+                    trace!("Got msg len: {}", msg.len());
+                    trace!("Parsing msg {:?} as hex", msg);
+                    let operation = match parse_from_bytes::<Operation>(&msg) {
+                        Ok(bytes) => bytes,
+                        Err(e) => {
+                            warn!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
+                            // TODO: Proper error handling
+                            return Ok(());
+                        }
+                    };
+                    debug!("Operation is: {:?}", operation);
+                    match operation.get_operation_type() {
+                        OpType::ACK => {
+                            trace!("got our ACK!");
+                        }
+                        OpType::NACK => {
+                            error!("We supplied a bad secret");
+                            panic!("Misconfigured shared secret");
+                        }
+                        _ => {
+                            debug!("Not quite handling {:?} yet", operation);
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to recieve bytes: {:?}", e);
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn register_msg(&self, socket: &Socket) -> ZmqResult<()>{
         let mut o = Operation::new();
         debug!("Creating  operation request");
         o.set_operation_type(OpType::REGISTER);
@@ -162,44 +204,13 @@ impl Agent {
             get_hostname().unwrap(),
             self.config.secret.clone(),
             self.my_pubkey.clone(),
+            self.my_id.clone(),
         );
         o.set_register(register.into());
         let encoded = o.write_to_bytes().unwrap();
         let msg = Message::from_slice(&encoded)?;
         trace!("Sending message");
-        socket.send_msg(msg, 0)?;
-        match socket.recv_bytes(0) {
-            Ok(msg) => {
-                trace!("Got msg len: {}", msg.len());
-                trace!("Parsing msg {:?} as hex", msg);
-                let operation = match parse_from_bytes::<Operation>(&msg) {
-                    Ok(bytes) => bytes,
-                    Err(e) => {
-                        warn!("Failed to parse_from_bytes {:?}.  Ignoring request", e);
-                        // TODO: Proper error handling
-                        return Ok(());
-                    }
-                };
-                debug!("Operation is: {:?}", operation);
-                match operation.get_operation_type() {
-                    OpType::ACK => {
-                        trace!("got our ACK!");
-                    }
-                    OpType::NACK => {
-                        error!("We supplied a bad secret");
-                        panic!("Misconfigured shared secret");
-                    }
-                    _ => {
-                        debug!("Not quite handling {:?} yet", operation);
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("Failed to recieve bytes: {:?}", e);
-                return Err(e);
-            }
-        }
-        Ok(())
+        socket.send_msg(msg, 0)
     }
 }
 

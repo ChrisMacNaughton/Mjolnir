@@ -19,6 +19,7 @@ serde = "1.0"
 serde_derive = "1.0" 
 simple_logger = "*"
 toml = "0.4"
+uuid = { version = "0.5", features = ["v4"] }
 xdg = "^2.1"
 yaml-rust = "0.3"
 zmq = "~0.8"

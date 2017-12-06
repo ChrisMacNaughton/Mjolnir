@@ -3,12 +3,15 @@ option optimize_for = SPEED;
 
 package Mjolnir;
 
+import "protos/agent.proto";
+
 // Controller asks for remediation
 message RemediationRequest {
   required string plugin = 1;
   optional string target = 2;
   repeated string args = 3;
   optional Alert alert = 4;
+  required UUID uuid = 5;
 }
 
 // Agent response with result
@@ -20,7 +23,7 @@ message RemediationResult {
     ERR = 1;
   }
   repeated Alert alerts = 3;
-
+  required UUID uuid = 4;
 }
 
 // TODO: Move these to their own crate
@@ -30,6 +33,7 @@ message Alert {
   optional string source = 3;
   repeated string args = 4;
   optional uint64 next_remediation = 5;
+  required UUID uuid = 6;
 }
 
 message Discover {

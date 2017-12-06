@@ -14,6 +14,7 @@ extern crate serde_derive;
 extern crate simple_logger;
 extern crate tokio_core;
 extern crate toml;
+extern crate uuid;
 extern crate xdg;
 extern crate yaml_rust;
 extern crate zmq;

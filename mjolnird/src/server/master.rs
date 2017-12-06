@@ -18,6 +18,8 @@ use hyper::server::{Http, Request, Response, Service};
 use hyper::{Body, Chunk, Method, StatusCode};
 use hyper::header::ContentLength;
 
+use uuid::Uuid;
+
 use zmq::{Message, Result as ZmqResult, Socket};
 
 use protobuf::Message as ProtobufMsg;
@@ -79,7 +81,8 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now(),
-            public_key: "pub_key".into()
+            public_key: "pub_key".into(),
+            uuid: Uuid::new_v4(),
         };
 
         let a2 = Agent {
@@ -87,7 +90,8 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now() + Duration::from_secs(100),
-            public_key: "pub_key".into()
+            public_key: "pub_key".into(),
+            uuid: Uuid::new_v4(),
         };
 
         assert_eq!(a1.clone(), a2);
@@ -97,7 +101,8 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now(),
-            public_key: "pub_key".into()
+            public_key: "pub_key".into(),
+            uuid: Uuid::new_v4(),
         };
 
         assert_ne!(a1, a3);
@@ -158,6 +163,7 @@ struct Agent {
     port: u16,
     last_seen: Instant,
     public_key: String,
+    uuid: Uuid,
 }
 
 impl PartialEq for Agent {
@@ -502,6 +508,7 @@ impl Master {
                                         port: register.port,
                                         last_seen: Instant::now(),
                                         public_key: register.public_key,
+                                        uuid: register.uuid,
                                     };
                                     let mut updated = false;
                                     {
