@@ -31,7 +31,13 @@ mod tests {
 
     #[test]
     fn it_serializes_and_deserializes_with_ipv6() {
-        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local", "supersecret", "pub_key");
+        let register = Register::new(
+            "::".parse().unwrap(),
+            12011,
+            "awesome.local",
+            "supersecret",
+            "pub_key",
+        );
 
         let request: proto::agent::Register = register.clone().into();
 
@@ -60,14 +66,14 @@ impl Register {
         hostname: T1,
         secret: T2,
         public_key: T3,
-        uuid: T4
-    ) -> Register 
+        uuid: T4,
+    ) -> Register
     where
         T1: Into<String>,
         T2: Into<String>,
         T3: Into<String>,
         T4: Into<Uuid>,
-        {
+    {
         Register {
             ip: ip,
             port: port,

@@ -18,11 +18,11 @@ mod tests {
             target: Some("awesomehost.local".into()),
             args: vec!["body".into()],
             alert: Some(Alert {
-                    alert_type: "Test1".into(),
-                    name: None,
-                    source: Some("test".into()),
-                    args: vec![],
-                    next_remediation: 0,
+                alert_type: "Test1".into(),
+                name: None,
+                source: Some("test".into()),
+                args: vec![],
+                next_remediation: 0,
             }),
             uuid: uuid(),
         };
@@ -55,13 +55,15 @@ mod tests {
 
     #[test]
     fn it_can_convert_from_vec() {
-        let r = vec![Remediation {
-            plugin: "Test".into(),
-            target: None,
-            args: vec!["body".into()],
-            alert: None,
-            uuid: uuid(),
-        }];
+        let r = vec![
+            Remediation {
+                plugin: "Test".into(),
+                target: None,
+                args: vec!["body".into()],
+                alert: None,
+                uuid: uuid(),
+            },
+        ];
 
         let repeated = Remediation::vec_to_repeated(&r);
         assert_eq!(r[0], repeated.first().unwrap().into());
@@ -78,10 +80,10 @@ mod tests {
 pub struct Remediation {
     pub plugin: String,
     pub target: Option<String>,
-    #[serde(default="empty")]
+    #[serde(default = "empty")]
     pub args: Vec<String>,
     pub alert: Option<Alert>,
-    #[serde(default="uuid")]
+    #[serde(default = "uuid")]
     pub uuid: Uuid,
 }
 

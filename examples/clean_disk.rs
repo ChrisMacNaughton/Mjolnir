@@ -29,10 +29,7 @@ fn generate_alerts() -> Vec<Alert> {
 
 fn generate_actions() -> Vec<Remediation> {
     // Your actions here
-    vec![
-        Remediation::new("clean_disk")
-            .with_arg("path")
-    ]
+    vec![Remediation::new("clean_disk").with_arg("path")]
     // vec![Remediation {
     //     plugin: "clean_disk".into(),
     //     target: None,
@@ -63,14 +60,16 @@ fn clean(args: HashMap<String, String>) -> RemediationResult {
                                 if let Err(e) = fs::remove_dir_all(&path) {
                                     if has_failed == false {
                                         has_failed = true;
-                                        failed_entry = format!("Failed to remove {}: {:?}", path.display(), e);
+                                        failed_entry =
+                                            format!("Failed to remove {}: {:?}", path.display(), e);
                                     }
                                 }
                             } else {
                                 if let Err(e) = fs::remove_file(&path) {
                                     if has_failed == false {
                                         has_failed = true;
-                                        failed_entry = format!("Failed to remove {}: {:?}", path.display(), e);
+                                        failed_entry =
+                                            format!("Failed to remove {}: {:?}", path.display(), e);
                                     }
                                 }
                             }
@@ -79,10 +78,10 @@ fn clean(args: HashMap<String, String>) -> RemediationResult {
                     if has_failed {
                         return result.err(failed_entry);
                     }
-                },
+                }
                 Err(e) => return result.err(format!("couldn't read directory {}: {:?}", s, e)),
             }
-        },
+        }
         None => {
             return result.err("Missing required argument: Path");
         }

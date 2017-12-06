@@ -35,9 +35,9 @@ plugin = "alert""#;
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Pipeline {
     pub trigger: Alert,
-    #[serde(default="empty")]
+    #[serde(default = "empty")]
     pub actions: Vec<Remediation>,
-    #[serde(default="uuid")]
+    #[serde(default = "uuid")]
     uuid: Uuid,
 }
 

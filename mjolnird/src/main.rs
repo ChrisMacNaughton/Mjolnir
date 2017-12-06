@@ -37,7 +37,7 @@ fn main() {
         Mode::Cli(mode) => {
             cli(&config, mode);
             return;
-        },
+        }
         _ => {}
     }
     server::bind(config).expect("Couldn't bind to the specified port");

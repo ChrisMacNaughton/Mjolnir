@@ -46,7 +46,9 @@ mod tests {
         alert = alert.increment();
         assert_eq!(alert.next_remediation, 1);
 
-        let alert2 = Alert::from_string(&String::from_utf8_lossy(&alert.clone().write_to_bytes().unwrap()).into_owned());
+        let alert2 = Alert::from_string(&String::from_utf8_lossy(
+            &alert.clone().write_to_bytes().unwrap(),
+        ).into_owned());
         assert_eq!(alert, alert2);
     }
 
@@ -69,13 +71,15 @@ mod tests {
 
     #[test]
     fn it_can_convert_from_vec() {
-        let r = vec![Alert {
-            alert_type: "Test".into(),
-            name: None,
-            source: None,
-            args: vec![],
-            next_remediation: 0,
-        }];
+        let r = vec![
+            Alert {
+                alert_type: "Test".into(),
+                name: None,
+                source: None,
+                args: vec![],
+                next_remediation: 0,
+            },
+        ];
 
         let repeated = Alert::vec_to_repeated(&r);
         assert_eq!(r[0], repeated.first().unwrap().into());
@@ -107,16 +111,16 @@ name = "full-disk""#;
 #[derive(Clone, Debug, Deserialize, Serialize, Eq)]
 pub struct Alert {
     /// In config, this is referred to as type
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     pub alert_type: String,
     pub name: Option<String>,
     pub source: Option<String>,
-    #[serde(default="empty")]
+    #[serde(default = "empty")]
     pub args: Vec<String>,
     /// Master managed index into pipeline
-    #[serde(default="zero")]
+    #[serde(default = "zero")]
     pub next_remediation: u64,
-    #[serde(default="uuid")]
+    #[serde(default = "uuid")]
     pub uuid: Uuid,
 }
 

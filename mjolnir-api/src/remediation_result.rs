@@ -41,7 +41,9 @@ mod tests {
         r = r.with_alerts(vec![Alert::default(), Alert::default()]);
         assert_eq!(r.alerts.len(), 3);
 
-        let r2 = RemediationResult::from_string(&String::from_utf8_lossy(&r.clone().write_to_bytes().unwrap()).into_owned());
+        let r2 = RemediationResult::from_string(&String::from_utf8_lossy(
+            &r.clone().write_to_bytes().unwrap(),
+        ).into_owned());
 
         assert_eq!(r, r2);
     }
@@ -117,13 +119,14 @@ impl<'a> From<&'a plugin::RemediationResult> for RemediationResult {
     fn from(result: &plugin::RemediationResult) -> RemediationResult {
         RemediationResult {
             result: match result.get_result() {
-                plugin::RemediationResult_ResultType::OK => {
-                    Ok(())
-                }, plugin::RemediationResult_ResultType::ERR => {
+                plugin::RemediationResult_ResultType::OK => Ok(()),
+                plugin::RemediationResult_ResultType::ERR => {
                     Err(result.get_error_msg().to_string())
                 }
             },
-            alerts: result.get_alerts().iter()
+            alerts: result
+                .get_alerts()
+                .iter()
                 .map(|alert| alert.into())
                 .collect(),
             uuid: result.get_uuid().into(),

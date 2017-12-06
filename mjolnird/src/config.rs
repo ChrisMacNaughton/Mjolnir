@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::Read;
-use std::net::{IpAddr};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -127,7 +127,7 @@ struct Root {
     mjolnir: ConfigFile,
     master: Option<ConfigFile>,
     agent: Option<ConfigFile>,
-    #[serde(default="empty")]
+    #[serde(default = "empty")]
     pipelines: Vec<Pipeline>,
 }
 
@@ -141,7 +141,7 @@ fn empty() -> Vec<Pipeline> {
 
 #[derive(Clone, Debug, Deserialize)]
 struct ConfigFile {
-    #[serde(default="empty_s")]
+    #[serde(default = "empty_s")]
     masters: Vec<String>,
     plugin_path: Option<PathBuf>,
     key_path: Option<PathBuf>,
@@ -152,7 +152,7 @@ struct ConfigFile {
 
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub masters:Vec<Master>,
+    pub masters: Vec<Master>,
     pub secret: String,
     pub bind_ip: IpAddr,
     pub http_port: u16,
@@ -246,18 +246,17 @@ impl<'a, 'b> Config {
                     .help("How verbose to log at")
                     .long("debug")
                     .short("d")
-                    .multiple(true)
+                    .multiple(true),
             )
-            .subcommand(
-                SubCommand::with_name("agent")
-                    .help("THe machine agent that runs on every machine")
-            )
-            .subcommand(SubCommand::with_name("master")
-                .help("The daemon that controls everything")
-            )
-            .subcommand(SubCommand::with_name("reload")
-                .help("Ask the masters to reload their config")
-            )
+            .subcommand(SubCommand::with_name("agent").help(
+                "THe machine agent that runs on every machine",
+            ))
+            .subcommand(SubCommand::with_name("master").help(
+                "The daemon that controls everything",
+            ))
+            .subcommand(SubCommand::with_name("reload").help(
+                "Ask the masters to reload their config",
+            ))
     }
 
     pub fn zmq_address(&self) -> String {
@@ -280,11 +279,10 @@ impl<'a, 'b> Config {
             if let Some(p) = matches.value_of("config") {
                 PathBuf::from(p)
             } else {
-                let mut p = xdg::BaseDirectories::with_prefix("mjolnir").ok().and_then(
-                    |xdg| {
-                        xdg.create_data_directory("").ok()
-                    },
-                ).expect("Couldn't determine config path, please specify one");
+                let mut p = xdg::BaseDirectories::with_prefix("mjolnir")
+                    .ok()
+                    .and_then(|xdg| xdg.create_data_directory("").ok())
+                    .expect("Couldn't determine config path, please specify one");
 
                 p.push("config.toml");
                 p
@@ -344,7 +342,10 @@ impl<'a, 'b> Config {
                         config_file.bind = Some(bind);
                     }
                     if let Some(bind) = config_file.bind {
-                        Master::from_str(&bind).expect(&format!("Couldn't parse my details from {}", bind))
+                        Master::from_str(&bind).expect(&format!(
+                            "Couldn't parse my details from {}",
+                            bind
+                        ))
                     } else {
                         Master {
                             ip: "0.0.0.0".into(),
@@ -352,7 +353,7 @@ impl<'a, 'b> Config {
                             zmq_port: 12011,
                         }
                     }
-                    
+
                 } else {
                     Master {
                         ip: "0.0.0.0".into(),
@@ -360,7 +361,7 @@ impl<'a, 'b> Config {
                         zmq_port: 12011,
                     }
                 }
-            },
+            }
             Mode::Agent | Mode::Cli(_) => {
                 if let Some(me) = root.agent {
                     if let Some(plugin_path) = me.plugin_path {
@@ -373,7 +374,10 @@ impl<'a, 'b> Config {
                         config_file.bind = Some(bind);
                     }
                     if let Some(bind) = config_file.bind {
-                        Master::from_str(&bind).expect(&format!("Couldn't parse my details from {}", bind))
+                        Master::from_str(&bind).expect(&format!(
+                            "Couldn't parse my details from {}",
+                            bind
+                        ))
                     } else {
                         Master {
                             ip: "0.0.0.0".into(),
@@ -381,7 +385,7 @@ impl<'a, 'b> Config {
                             zmq_port: 12012,
                         }
                     }
-                    
+
                 } else {
                     Master {
                         ip: "0.0.0.0".into(),
@@ -389,11 +393,20 @@ impl<'a, 'b> Config {
                         zmq_port: 12012,
                     }
                 }
-            },
+            }
         };
         Config {
             mode: mode,
-            masters: config_file.masters.iter().map(|a| Master::from_str(a).expect(&format!("Couldn't parse {} into IP:HTTP_PORT:ZMQ_PORT", a))).collect(),
+            masters: config_file
+                .masters
+                .iter()
+                .map(|a| {
+                    Master::from_str(a).expect(&format!(
+                        "Couldn't parse {} into IP:HTTP_PORT:ZMQ_PORT",
+                        a
+                    ))
+                })
+                .collect(),
             bind_ip: IpAddr::from_str(&me.ip).expect(&format!("Couldn't parse IP from {}", me.ip)),
             http_port: match mode {
                 Mode::Master => me.http_port,
@@ -413,7 +426,7 @@ impl<'a, 'b> Config {
                 1 => LogLevel::Info,
                 2 => LogLevel::Debug,
                 3 | _ => LogLevel::Trace,
-            }
+            },
         }
     }
 }

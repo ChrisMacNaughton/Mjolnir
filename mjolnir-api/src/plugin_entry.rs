@@ -24,20 +24,21 @@ mod tests {
                     source: Some("test".into()),
                     args: vec![],
                     next_remediation: 0,
-                },Alert {
+                },
+                Alert {
                     alert_type: "Test2".into(),
                     name: None,
                     source: Some("test".into()),
                     args: vec![],
                     next_remediation: 0,
-                }
+                },
             ],
             remediations: vec![
                 Remediation {
                     plugin: "Test".into(),
                     target: Some("awesomehost.local".into()),
                     args: vec!["body".into()],
-                    alert:  None,
+                    alert: None,
                 },
             ],
             path: PathBuf::from("/tmp/test-name"),
@@ -45,7 +46,9 @@ mod tests {
 
         let request: plugin::Discover = plugin.clone().into();
 
-        let bytes = request.write_to_bytes().expect("Couldn't turn the plugin into bytes");
+        let bytes = request.write_to_bytes().expect(
+            "Couldn't turn the plugin into bytes",
+        );
         let mut plugin2: PluginEntry = parse_from_bytes::<plugin::Discover>(&bytes).unwrap().into();
         plugin2 = plugin2.with_path(PathBuf::from("/tmp/test-name"));
         assert_eq!(plugin, plugin2);
@@ -152,21 +155,23 @@ pub struct PluginEntry {
 }
 
 impl PluginEntry {
-    pub fn try_from(input: &[u8], path: &PathBuf) -> Result<PluginEntry,String> {
+    pub fn try_from(input: &[u8], path: &PathBuf) -> Result<PluginEntry, String> {
         match plugin::Discover::try_from(input) {
             Ok(entry) => {
                 let p: PluginEntry = entry.into();
                 Ok(p.with_path(path.clone()))
             }
-            Err(e) => {
-                Err(format!("Problem parsing: {:?}", e))
-            }
+            Err(e) => Err(format!("Problem parsing: {:?}", e)),
         }
     }
 
     fn with_path(mut self, path: PathBuf) -> PluginEntry {
         self.path = path;
-        self.name = self.path.file_name().unwrap().to_string_lossy().into_owned();
+        self.name = self.path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         self
     }
 }

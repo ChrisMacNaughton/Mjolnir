@@ -21,7 +21,8 @@ use reqwest;
 
 // use tokio_core::reactor::Core;
 
-use mjolnir_api::{Operation, OperationType as OpType, Register, parse_from_bytes, PluginEntry, Remediation, RemediationResult};
+use mjolnir_api::{Operation, OperationType as OpType, Register, parse_from_bytes, PluginEntry,
+                  Remediation, RemediationResult};
 
 use protobuf::Message as ProtobufMsg;
 
@@ -56,28 +57,27 @@ impl Agent {
         let _ = agent.register();
         let ping_duration = Duration::from_millis(500);
         let masters = agent.config.masters.clone();
-        thread::spawn(move|| {
-            loop {
-                for master in masters.iter() {
-                    let server_key = get_master_pubkey(&master).expect("Couldn't load the master's public key");
-                    match connect(&master.ip, master.zmq_port, &server_key){
-                        Ok(socket) => {
-                            let mut o = Operation::new();
-                            o.set_operation_type(OpType::PING);
+        thread::spawn(move || loop {
+            for master in masters.iter() {
+                let server_key =
+                    get_master_pubkey(&master).expect("Couldn't load the master's public key");
+                match connect(&master.ip, master.zmq_port, &server_key) {
+                    Ok(socket) => {
+                        let mut o = Operation::new();
+                        o.set_operation_type(OpType::PING);
 
-                            let encoded = o.write_to_bytes().unwrap();
-                            let msg = Message::from_slice(&encoded).unwrap();
-                            match socket.send_msg(msg, 0) {
-                                Ok(_s) => {},
-                                Err(e) => warn!("Problem snding ping: {:?}", e)
-                            }
+                        let encoded = o.write_to_bytes().unwrap();
+                        let msg = Message::from_slice(&encoded).unwrap();
+                        match socket.send_msg(msg, 0) {
+                            Ok(_s) => {}
+                            Err(e) => warn!("Problem snding ping: {:?}", e),
                         }
-                        Err(e) => warn!("problem connecting to socket: {:?}", e),
                     }
+                    Err(e) => warn!("problem connecting to socket: {:?}", e),
                 }
-            
-                thread::sleep(ping_duration);
             }
+
+            thread::sleep(ping_duration);
         });
         let _ = agent.listen();
         Ok(())
@@ -89,7 +89,7 @@ impl Agent {
         let server_pubkey = self.server_pubkey.clone();
         zmq_listen(
             &Arc::new(RwLock::new(config.clone())),
-            Box::new(move|operation, responder| {
+            Box::new(move |operation, responder| {
                 match operation.get_operation_type() {
                     OpType::PING => {
                         let mut o = Operation::new();
@@ -113,7 +113,7 @@ impl Agent {
 
                         debug!("Result: {:?}", res);
 
-                        match connect(&masters[0].ip, masters[0].zmq_port, &server_pubkey){
+                        match connect(&masters[0].ip, masters[0].zmq_port, &server_pubkey) {
                             Ok(socket) => {
                                 let mut o = Operation::new();
                                 o.set_operation_type(OpType::REMEDIATION_RESULT);
@@ -121,13 +121,13 @@ impl Agent {
                                 let encoded = o.write_to_bytes().unwrap();
                                 let msg = Message::from_slice(&encoded).unwrap();
                                 match socket.send_msg(msg, 0) {
-                                    Ok(_s) => {},
-                                    Err(e) => warn!("Problem sending result: {:?}", e)
+                                    Ok(_s) => {}
+                                    Err(e) => warn!("Problem sending result: {:?}", e),
                                 }
                             }
                             Err(e) => warn!("problem connecting to socket: {:?}", e),
                         }
-                        
+
                     }
                     _ => {
                         debug!("Not quite handling {:?} yet", operation);
@@ -194,7 +194,7 @@ impl Agent {
         Ok(())
     }
 
-    fn register_msg(&self, socket: &Socket) -> ZmqResult<()>{
+    fn register_msg(&self, socket: &Socket) -> ZmqResult<()> {
         let mut o = Operation::new();
         debug!("Creating  operation request");
         o.set_operation_type(OpType::REGISTER);
@@ -215,22 +215,40 @@ impl Agent {
 }
 
 
-fn remediate(remediation: Remediation, config: &Config, masters: &Vec<Master>) -> RemediationResult {
+fn remediate(
+    remediation: Remediation,
+    config: &Config,
+    masters: &Vec<Master>,
+) -> RemediationResult {
     let plugin_path = {
         let mut plugin_path = config.plugin_path.clone();
         plugin_path.push(&remediation.plugin);
         plugin_path
     };
-    if ! plugin_path.exists() {
+    if !plugin_path.exists() {
         let master = if let Some(master) = masters.first() {
             master
         } else {
-            return RemediationResult::new().err("Couldn't find the masters").with_alert(remediation.alert.unwrap().increment())
+            return RemediationResult::new()
+                .err("Couldn't find the masters")
+                .with_alert(remediation.alert.unwrap().increment());
         };
-        if let Ok(mut resp) = reqwest::get(&format!("http://{}:{}/plugin/{}", master.ip, master.http_port, remediation.plugin)) {
+        if let Ok(mut resp) = reqwest::get(&format!(
+            "http://{}:{}/plugin/{}",
+            master.ip,
+            master.http_port,
+            remediation.plugin
+        ))
+        {
             let status = resp.status();
             if !status.is_success() {
-                return RemediationResult::new().err(format!("couldn't download {} : {:?}", plugin_path.display(), status)).with_alert(remediation.alert.unwrap().increment())
+                return RemediationResult::new()
+                    .err(format!(
+                        "couldn't download {} : {:?}",
+                        plugin_path.display(),
+                        status
+                    ))
+                    .with_alert(remediation.alert.unwrap().increment());
             }
             match fs::OpenOptions::new()
                 .create(true)
@@ -239,26 +257,59 @@ fn remediate(remediation: Remediation, config: &Config, masters: &Vec<Master>) -
                 .open(&plugin_path) {
                 Ok(mut f) => {
                     if let Err(e) = io::copy(&mut resp, &mut f) {
-                        return RemediationResult::new().err(format!("couldn't download {} : {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
+                        return RemediationResult::new()
+                            .err(format!(
+                                "couldn't download {} : {:?}",
+                                plugin_path.display(),
+                                e
+                            ))
+                            .with_alert(remediation.alert.unwrap().increment());
                     }
-                },
-                Err(e) => return RemediationResult::new().err(format!("couldn't create {} : {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
+                }
+                Err(e) => {
+                    return RemediationResult::new()
+                        .err(format!(
+                            "couldn't create {} : {:?}",
+                            plugin_path.display(),
+                            e
+                        ))
+                        .with_alert(remediation.alert.unwrap().increment())
+                }
             };
         } else {
-            return RemediationResult::new().err(format!("Couldn't fetch the plugin from the master at {}:{}", master.ip,  master.http_port)).with_alert(remediation.alert.unwrap().increment())
+            return RemediationResult::new()
+                .err(format!(
+                    "Couldn't fetch the plugin from the master at {}:{}",
+                    master.ip,
+                    master.http_port
+                ))
+                .with_alert(remediation.alert.unwrap().increment());
         }
     }
     let plugin = match Command::new(&plugin_path).output() {
         Ok(output) => {
-            match PluginEntry::try_from(
-                &output.stdout,
-                &plugin_path,
-            ) {
+            match PluginEntry::try_from(&output.stdout, &plugin_path) {
                 Ok(plugin) => plugin,
-                Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
+                Err(e) => {
+                    return RemediationResult::new()
+                        .err(format!(
+                            "Had a problem loading plugin at {}: {:?}",
+                            plugin_path.display(),
+                            e
+                        ))
+                        .with_alert(remediation.alert.unwrap().increment())
+                }
             }
         }
-        Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(remediation.alert.unwrap().increment())
+        Err(e) => {
+            return RemediationResult::new()
+                .err(format!(
+                    "Had a problem loading plugin at {}: {:?}",
+                    plugin_path.display(),
+                    e
+                ))
+                .with_alert(remediation.alert.unwrap().increment())
+        }
     };
 
     let mut res = run_plugin(&plugin, &remediation);
