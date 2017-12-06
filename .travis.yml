@@ -67,9 +67,11 @@ jobs:
       - sudo snap install lxd --channel=stable
       - export PATH=/snap/bin/:${PATH}
       - sudo lxd waitready --timeout 60
-      - sudo lxd init --auto --trust-password=the-password --network-port=8443 --network-address='[::]'
+      - sudo lxd init --auto'
       - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
       - sudo usermod -a -G lxd travis
+      - sudo su travis -c 'lxc network create lxdbr0'
+      - sudo su travis -c 'lxc network attach-profile lxdbr0 default eth0'
       - sudo su travis -c 'PATH=/snap/bin/:${PATH} VERBOSE=true tests/run.sh'
 
 after_success: |
