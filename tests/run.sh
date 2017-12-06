@@ -38,12 +38,8 @@ if [ -n ${VERBOSE+x} ];
 then
     echo "Installing dependencies on Master"
 fi
-if [ -n ${VERBOSE+x} ];
-then
-    deps xenial master
-else
-    deps xenial master > /dev/null 2>&1
-fi
+
+deps xenial master > /dev/null 2>&1
 
 if [ -n ${VERBOSE+x} ];
 then
@@ -54,16 +50,8 @@ lxc exec master -- /bin/sh -c "/bin/mkdir -p /build"
 # echo "Pushing files into container"
 tar --exclude-vcs --exclude=target -zcf - . | lxc exec --verbose master -- /bin/sh -c "/bin/tar zxf - -C /build"
 
-if [ -n ${VERBOSE+x} ];
-then
-    lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"
-    lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"
-else
-    lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null 2>&1
-    lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null 2>&1
-fi
-
-
+lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null 2>&1
+lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null 2>&1
 
 cat > config.toml <<EOF
 [mjolnir]
@@ -88,11 +76,6 @@ bind = "0.0.0.0:11012:12012"
     name = "full-disk"
 EOF
 
-if [ -n ${VERBOSE+x} ];
-then
-    echo "Pushing files to master"
-fi
-
 lxc file push -p ./config.toml master/usr/local/share/mjolnir/config.toml
 lxc file push -p ./systemd/mjolnird-master.service master/etc/systemd/system/mjolnird-master.service
 
@@ -101,6 +84,11 @@ rm config.toml
 # echo "Starting mjolnird-master service"
 lxc_exec master "ln -s /build/target/debug/mjolnird /usr/sbin/mjolnird || true"
 lxc_exec master "systemctl start mjolnird-master"
+
+if [ -n ${VERBOSE+x} ];
+then
+    echo "Spawning agents"
+fi
 
 for i in $(seq 1 3)
 do

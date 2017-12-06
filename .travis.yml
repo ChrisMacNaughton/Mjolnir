@@ -6,9 +6,6 @@ language: rust
 cache:
   cargo: true
   apt: true
-  # directories:
-  #   - $HOME/lib
-  #   - $HOME/include
 
 rust:
   - stable
@@ -32,17 +29,12 @@ addons:
       - libsodium-dev
       # Comes from alexhuang's ppa
       - libzmq
-      # - libzmq3-dev # can't use trusty's version of zmq because it's too old
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
-# stages:
-#   - name: test
-#   - name: functional
-#     if: env(TRAVIS_RUST_VERSION) = stable
 
-script: /bin/true # cargo test --all --verbose
+script: cargo test --all --verbose
 jobs:
   include:
     - stage: functional
@@ -60,7 +52,7 @@ jobs:
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    # cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
+    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
   fi
 
 # Could do this to provide trusty debs
