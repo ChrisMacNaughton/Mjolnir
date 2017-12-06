@@ -55,10 +55,9 @@ before_script: |
 #   - name: functional
 #     if: env(TRAVIS_RUST_VERSION) = stable
 
+script: cargo test --all --verbose
 jobs:
   include:
-    - stage: test
-      script: cargo test --all --verbose
     - stage: functional
       script: |
         # setup dependencies here to save time on simpler test environments
