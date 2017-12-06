@@ -420,10 +420,15 @@ impl Master {
             } else {
                 // TODO : process alerts that have no target
                 info!("PENDING : Handle alerts with no target");
-                let res = self.remediate_default(alert);
-                match res.result {
-                    Ok(()) => {},
-                    Err(e) =>warn!("Default remediation Failed: {:?}", e),
+                if let Some(action) = pipeline.actions.get(alert.next_remediation as usize) {
+                    self.run_remediation(alert, action.clone());
+                } else {
+                    let res = self.remediate_default(alert);
+                    match res.result {
+                        Ok(()) => {},
+                        Err(e) => error!("Default remediation Failed: {:?}", e),
+                    }
+                    
                 }
             }
         } else {
@@ -445,31 +450,40 @@ impl Master {
             Err(e) => return RemediationResult::new().err(format!("Couldn't get read lock: {:?}", e))
         };
 
-        if let Some(mut default) = config.default_remediation.clone() {
-            // agent.remediate(alert, &default);
-            let plugin_path = {
-                let mut plugin_path = config.plugin_path.clone();
-                plugin_path.push(&default.plugin);
-                plugin_path
-            };
-            let plugin = match Command::new(&plugin_path).output() {
-                Ok(output) => {
-                    match PluginEntry::try_from(
-                        &output.stdout,
-                        &plugin_path,
-                    ) {
-                        Ok(plugin) => plugin,
-                        Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
-                    }
-                }
-                Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
-            };
-            default.alert =Some(alert);
-            run_plugin(&plugin, &default)
+        if let Some(default) = config.default_remediation.clone() {
+            self.run_remediation(alert, default)
         } else {
             warn!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
             RemediationResult::new().err(format!("No default remediation configured")).with_alert(alert.increment())
         }
+    }
+
+    fn run_remediation(&self, alert: Alert, mut remediation: Remediation) -> RemediationResult {
+         let config = match self.config.read() {
+            Ok(c) => c,
+            Err(e) => return RemediationResult::new().err(format!("Couldn't get read lock: {:?}", e))
+        };
+
+        // agent.remediate(alert, &default);
+        let plugin_path = {
+            let mut plugin_path = config.plugin_path.clone();
+            plugin_path.push(&remediation.plugin);
+            plugin_path
+        };
+        let plugin = match Command::new(&plugin_path).output() {
+            Ok(output) => {
+                match PluginEntry::try_from(
+                    &output.stdout,
+                    &plugin_path,
+                ) {
+                    Ok(plugin) => plugin,
+                    Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
+                }
+            }
+            Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
+        };
+        remediation.alert =Some(alert);
+        run_plugin(&plugin, &remediation)
     }
 
     fn setup_zmq(&self) -> ZmqResult<()> {
