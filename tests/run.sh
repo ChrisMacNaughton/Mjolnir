@@ -26,7 +26,10 @@ master_ip=`lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
 export master_ip
 deps xenial master > /dev/null 2>&1
 
-# echo "Setting up /build"
+if [ -n ${VERBOSE+x} ];
+then
+    echo "Setting up Master for build"
+fi
 
 lxc exec master -- /bin/sh -c "/bin/mkdir -p /build"
 # echo "Pushing files into container"
@@ -35,7 +38,6 @@ tar --exclude-vcs --exclude=target -zcf - . | lxc exec --verbose master -- /bin/
 lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null 2>&1
 lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null 2>&1
 
-# echo "Creating config.toml"
 cat > config.toml <<EOF
 [mjolnir]
   key_path = "/usr/local/share/mjolnir"
@@ -58,7 +60,12 @@ bind = "0.0.0.0:11012:12012"
     type = "alertmanager"
     name = "full-disk"
 EOF
-# echo "Pushing files to master"
+
+if [ -n ${VERBOSE+x} ];
+then
+    echo "Pushing files to master"
+fi
+
 lxc file push -p ./config.toml master/usr/local/share/mjolnir/config.toml
 lxc file push -p ./systemd/mjolnird-master.service master/etc/systemd/system/mjolnird-master.service
 
