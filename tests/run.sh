@@ -38,7 +38,12 @@ if [ -n ${VERBOSE+x} ];
 then
     echo "Installing dependencies on Master"
 fi
-deps xenial master > /dev/null 2>&1
+if [ -n ${VERBOSE+x} ];
+then
+    deps xenial master
+else
+    deps xenial master > /dev/null 2>&1
+fi
 
 if [ -n ${VERBOSE+x} ];
 then
@@ -49,8 +54,16 @@ lxc exec master -- /bin/sh -c "/bin/mkdir -p /build"
 # echo "Pushing files into container"
 tar --exclude-vcs --exclude=target -zcf - . | lxc exec --verbose master -- /bin/sh -c "/bin/tar zxf - -C /build"
 
-lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null 2>&1
-lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null 2>&1
+if [ -n ${VERBOSE+x} ];
+then
+    lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"
+    lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"
+else
+    lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null 2>&1
+    lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null 2>&1
+fi
+
+
 
 cat > config.toml <<EOF
 [mjolnir]
