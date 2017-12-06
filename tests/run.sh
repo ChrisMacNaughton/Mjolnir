@@ -28,10 +28,6 @@ then
 fi
 lxc launch ubuntu:xenial master > /dev/null 2>&1
 sleep 5
-if [ -n ${VERBOSE+x} ];
-then
-    echo "Getting Master IP"
-fi
 master_ip=`lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
 export master_ip
 if [ -n ${VERBOSE+x} ];
