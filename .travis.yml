@@ -37,22 +37,6 @@ install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
-# before_script: |
-#   export PATH=$HOME/.local/bin:$PATH &&
-#   export LIBRARY_PATH=$HOME/lib &&
-#   export LD_LIBRARY_PATH=$HOME/lib &&
-#   export PKG_CONFIG_PATH=$HOME/lib/pkgconfig
-#   if [ ! -d "$HOME/lib" ]; then
-#     cd /tmp
-#     curl -sSOL https://github.com/zeromq/libzmq/releases/download/v4.2.0/zeromq-4.2.0.tar.gz
-#     tar zxf zeromq-4.2.0.tar.gz
-#     cd zeromq-4.2.0
-#     ./autogen.sh
-#     ./configure --prefix=$HOME --with-libsodium
-#     make -j 2 && make install
-#     cd $TRAVIS_BUILD_DIR
-#   fi
-
 # stages:
 #   - name: test
 #   - name: functional
@@ -67,16 +51,16 @@ jobs:
       - sudo snap install lxd --channel=stable
       - export PATH=/snap/bin/:${PATH}
       - sudo lxd waitready --timeout 60
-      - sudo lxd init --auto'
+      - sudo lxd init --auto
       - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
       - sudo usermod -a -G lxd travis
-      - sudo su travis -c 'lxc network create lxdbr0'
-      - sudo su travis -c 'lxc network attach-profile lxdbr0 default eth0'
+      - sudo su travis -c 'PATH=/snap/bin/:${PATH} lxc network create lxdbr0'
+      - sudo su travis -c 'PATH=/snap/bin/:${PATH} lxc network attach-profile lxdbr0 default eth0'
       - sudo su travis -c 'PATH=/snap/bin/:${PATH} VERBOSE=true tests/run.sh'
 
 after_success: |
   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
+    # cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
   fi
 
 # Could do this to provide trusty debs
