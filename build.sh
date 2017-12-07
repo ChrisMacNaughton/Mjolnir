@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ -z "$1" ]
   then
     echo "No argument supplied, requires build version"
@@ -32,23 +34,8 @@ echo "Pushing files into container"
 tar --exclude-vcs --exclude=target -zcf - . | lxc exec --verbose $container -- /bin/sh -c "/bin/tar zxf - -C /build"
 sleep 5
 
-echo "Installing deps"
-packages="libssl-dev protobuf-compiler libprotobuf-dev libsodium-dev liblzma-dev pkg-config"
-if [ "$distro" = "trusty" ]
-    then
-    lxc exec --verbose $container -- /bin/sh -c "add-apt-repository -y ppa:chris-lea/libsodium"
-    lxc exec --verbose $container -- /bin/sh -c "add-apt-repository -y ppa:alexhuang/libzmq"
-    packages="$packages libzmq"
-fi
-if [ "$distro" = "xenial" ]
-    then
-    packages="$packages libzmq5-dev"
-fi
-lxc exec --verbose $container -- /bin/sh -c "apt-get update -q"
-lxc exec --verbose $container -- /bin/sh -c "apt-get install -yq $packages"
-
-echo "About to install rust"
-lxc exec --verbose $container -- /bin/sh -c "curl https://sh.rustup.rs -sSf | sh -s -- -y"
+. scripts/deps.sh
+deps $distro $container
 
 echo "Installing cargo-deb"
 lxc exec --verbose $container -- /bin/sh -c "/root/.cargo/bin/cargo install cargo-deb"

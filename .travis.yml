@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 dist: trusty
 
 language: rust
@@ -6,9 +6,6 @@ language: rust
 cache:
   cargo: true
   apt: true
-  directories:
-    - $HOME/lib
-    - $HOME/include
 
 rust:
   - stable
@@ -19,6 +16,7 @@ addons:
   apt:
     sources:
     - sourceline: 'ppa:chris-lea/libsodium'
+    - sourceline: 'ppa:alexhuang/libzmq'
     packages:
       # Cargo coverage dependencies
       - libcurl4-openssl-dev
@@ -29,33 +27,34 @@ addons:
       - protobuf-compiler
       - libprotobuf-dev
       - libsodium-dev
-      # - libzmq3-dev # can't use trusty's version of zmq because it's too old
+      # Comes from alexhuang's ppa
+      - libzmq
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
-before_script: |
-  export PATH=$HOME/.local/bin:$PATH &&
-  export LIBRARY_PATH=$HOME/lib &&
-  export LD_LIBRARY_PATH=$HOME/lib &&
-  export PKG_CONFIG_PATH=$HOME/lib/pkgconfig
-  if [ ! -d "$HOME/lib" ]; then
-    cd /tmp
-    curl -sSOL https://github.com/zeromq/libzmq/releases/download/v4.2.0/zeromq-4.2.0.tar.gz
-    tar zxf zeromq-4.2.0.tar.gz
-    cd zeromq-4.2.0
-    ./autogen.sh
-    ./configure --prefix=$HOME --with-libsodium
-    make -j 2 && make install
-    cd $TRAVIS_BUILD_DIR
-  fi
 script:
   - cargo test --all --verbose
+  - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs --all; fi
+jobs:
+  include:
+    - stage: functional
+      script: 
+      - sudo apt-get install snapd > /dev/null 2>&1
+      - sudo snap install lxd --channel=stable > /dev/null 2>&1
+      - export PATH=/snap/bin/:${PATH}
+      - sudo lxd waitready --timeout 60
+      - sudo lxd init --auto
+      - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
+      - sudo usermod -a -G lxd travis
+      - sudo su travis -c 'PATH=/snap/bin/:${PATH} lxc network create lxdbr0'
+      - sudo su travis -c 'PATH=/snap/bin/:${PATH} lxc network attach-profile lxdbr0 default eth0'
+      - sudo su travis -c 'PATH=/snap/bin/:${PATH} VERBOSE=true tests/run.sh'
 
-after_success: |
-  if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
-  fi
+# after_success: |
+#   if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
+#     cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs  --all
+#   fi
 
 # Could do this to provide trusty debs
 
