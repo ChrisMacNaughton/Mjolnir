@@ -3,11 +3,14 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate toml;
+extern crate uuid;
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub use protobuf::core::{Message, parse_from_bytes};
 pub use protobuf::repeated::RepeatedField;
+
+use uuid::Uuid;
 
 pub mod proto;
 // pub mod agent;
@@ -39,7 +42,8 @@ macro_rules! plugin_list {
         {
             let mut plugins: HashMap<String, _> = HashMap::new();
             $(
-                plugins.insert($name.into(), $call as fn(HashMap<String, String>) -> RemediationResult);
+                plugins.insert(
+                    $name.into(), $call as fn(HashMap<String, String>) -> RemediationResult);
             )*
             plugins
         }
@@ -66,7 +70,7 @@ impl Into<proto::agent::IpAddr> for IpAddr {
                 address.set_c(octets[2] as u32);
                 address.set_d(octets[3] as u32);
                 addr.set_v4(address);
-            },
+            }
             IpAddr::V6(ref a) => {
                 addr.set_version(proto::agent::Version::V6);
                 let mut address = proto::agent::Ipv6Addr::new();
@@ -81,7 +85,7 @@ impl Into<proto::agent::IpAddr> for IpAddr {
                 address.set_h(octets[7] as u32);
 
                 addr.set_v6(address);
-            },
+            }
         }
         addr
     }
@@ -92,30 +96,46 @@ impl From<proto::agent::IpAddr> for IpAddr {
         match addr.get_version() {
             proto::agent::Version::V4 => {
                 let ip = addr.get_v4();
-                IpAddr::V4(
-                    Ipv4Addr::new(
-                        ip.get_a() as u8,
-                        ip.get_b() as u8,
-                        ip.get_c() as u8,
-                        ip.get_d() as u8,
-                    )
-                )
-            },
+                IpAddr::V4(Ipv4Addr::new(
+                    ip.get_a() as u8,
+                    ip.get_b() as u8,
+                    ip.get_c() as u8,
+                    ip.get_d() as u8,
+                ))
+            }
             proto::agent::Version::V6 => {
                 let ip = addr.get_v6();
-                IpAddr::V6(
-                    Ipv6Addr::new(
-                        ip.get_a() as u16,
-                        ip.get_b() as u16,
-                        ip.get_c() as u16,
-                        ip.get_d() as u16,
-                        ip.get_e() as u16,
-                        ip.get_f() as u16,
-                        ip.get_g() as u16,
-                        ip.get_h() as u16,
-                    )
-                )
-            },
+                IpAddr::V6(Ipv6Addr::new(
+                    ip.get_a() as u16,
+                    ip.get_b() as u16,
+                    ip.get_c() as u16,
+                    ip.get_d() as u16,
+                    ip.get_e() as u16,
+                    ip.get_f() as u16,
+                    ip.get_g() as u16,
+                    ip.get_h() as u16,
+                ))
+            }
         }
+    }
+}
+
+impl From<proto::agent::UUID> for Uuid {
+    fn from(uuid: proto::agent::UUID) -> Uuid {
+        (&uuid).into()
+    }
+}
+
+impl<'a> From<&'a proto::agent::UUID> for Uuid {
+    fn from(uuid: &'a proto::agent::UUID) -> Uuid {
+        Uuid::parse_str(uuid.get_value()).unwrap()
+    }
+}
+
+impl Into<proto::agent::UUID> for Uuid {
+    fn into(self) -> proto::agent::UUID {
+        let mut uuid = proto::agent::UUID::new();
+        uuid.set_value(format!("{}", self));
+        uuid
     }
 }

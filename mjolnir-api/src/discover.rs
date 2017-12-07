@@ -7,7 +7,8 @@ use {Alert, Remediation};
 mod tests {
     use super::*;
 
-    pub use protobuf::core::{Message, parse_from_bytes};
+    use protobuf::core::{Message, parse_from_bytes};
+    use uuid::Uuid;
 
     #[test]
     fn it_serializes_and_deserializes() {
@@ -16,7 +17,9 @@ mod tests {
         let request: proto::plugin::Discover = discover.clone().into();
 
         let bytes = request.write_to_bytes().unwrap();
-        let discover2 = parse_from_bytes::<proto::plugin::Discover>(&bytes).unwrap().into();
+        let discover2 = parse_from_bytes::<proto::plugin::Discover>(&bytes)
+            .unwrap()
+            .into();
         assert_eq!(discover, discover2);
     }
 
@@ -31,18 +34,22 @@ mod tests {
                 source: Some("test".into()),
                 args: vec!["testarg=value".into()],
                 next_remediation: 0,
+                uuid: Uuid::new_v4(),
             })
             .with_remediation(Remediation {
                 plugin: "Test".into(),
                 target: None,
                 args: vec!["body".into()],
                 alert: None,
+                uuid: Uuid::new_v4(),
             });
 
         let request: proto::plugin::Discover = discover.clone().into();
 
         let bytes = request.write_to_bytes().unwrap();
-        let discover2 = parse_from_bytes::<proto::plugin::Discover>(&bytes).unwrap().into();
+        let discover2 = parse_from_bytes::<proto::plugin::Discover>(&bytes)
+            .unwrap()
+            .into();
         assert_eq!(discover, discover2);
     }
 }
@@ -60,16 +67,16 @@ pub struct Discover {
 
 impl Discover {
     pub fn new<T: Into<String>>(name: T) -> Discover {
-       let mut d = Discover::default();
-       d.name = name.into();
-       d
+        let mut d = Discover::default();
+        d.name = name.into();
+        d
     }
 
     pub fn with_author<T: Into<String>>(mut self, author: T) -> Self {
         self.author = Some(author.into());
         self
     }
-    
+
     pub fn with_version<T: Into<String>>(mut self, version: T) -> Self {
         self.version = Some(version.into());
         self
@@ -125,7 +132,7 @@ impl Into<proto::plugin::Discover> for Discover {
 }
 
 impl From<proto::plugin::Discover> for Discover {
-    fn from(discover: proto::plugin::Discover) ->Discover {
+    fn from(discover: proto::plugin::Discover) -> Discover {
         Discover {
             name: discover.get_name().to_owned(),
             author: if discover.has_author() {

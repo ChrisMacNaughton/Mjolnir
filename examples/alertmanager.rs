@@ -68,7 +68,9 @@ fn list_plugins() -> HashMap<String, fn(HashMap<String, String>) -> RemediationR
     // This is an exmaple of what the below macro expands into
     //
     // let mut plugins: HashMap<String, _> = HashMap::new();
-    // plugins.insert("alertmanager".into(), alertmanager as fn(HashMap<String, String>) -> RemediationResult);
+    // plugins.insert(
+    //    "alertmanager".into(), alertmanager as fn(HashMap<String, String>) -> RemediationResult
+    // );
     // plugins
 
     // Insert your plugins here!
@@ -82,29 +84,33 @@ fn alertmanager(args: HashMap<String, String>) -> RemediationResult {
         if body.len() > 0 {
             body.clone()
         } else {
-            return RemediationResult::new().err(format!("Empty Body"))
+            return RemediationResult::new().err(format!("Empty Body"));
         }
     } else {
-        return RemediationResult::new().err(format!("Missing required argument: Body"))
+        return RemediationResult::new().err(format!("Missing required argument: Body"));
     };
     let incoming: Incoming = match serde_json::from_str(&body) {
         Ok(a) => a,
-        Err(e) => return RemediationResult::new().err(format!("Failed to parse json: {:?}", e))
+        Err(e) => return RemediationResult::new().err(format!("Failed to parse json: {:?}", e)),
     };
-    let alerts = incoming.alerts.iter().map(|a| {
-        let mut alert = Alert::new("alertmanager");
-        alert = alert.with_arg(format!("raw={:?}", incoming));
-        if let Some(name) = a.labels.get("alertname") {
-            alert = alert.with_name(name.clone());
-        }
-        if let Some(host) = a.labels.get("host") {
-            alert = alert.with_source(host.clone());
-        }
-        for (key, value) in &a.labels {
-            alert = alert.with_arg(format!("{}={}", key, value));
-        }
-        alert
-    }).collect();
+    let alerts = incoming
+        .alerts
+        .iter()
+        .map(|a| {
+            let mut alert = Alert::new("alertmanager");
+            alert = alert.with_arg(format!("raw={:?}", incoming));
+            if let Some(name) = a.labels.get("alertname") {
+                alert = alert.with_name(name.clone());
+            }
+            if let Some(host) = a.labels.get("host") {
+                alert = alert.with_source(host.clone());
+            }
+            for (key, value) in &a.labels {
+                alert = alert.with_arg(format!("{}={}", key, value));
+            }
+            alert
+        })
+        .collect();
     RemediationResult::new()
         .ok()
         // .with_alert(

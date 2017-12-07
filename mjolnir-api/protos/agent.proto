@@ -10,6 +10,11 @@ message Register {
   required string hostname = 3;
   required string secret = 4;
   required string public_key = 5;
+  required UUID uuid = 6;
+}
+
+message UUID {
+  required string value = 1;
 }
 
 enum Version {

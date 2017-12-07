@@ -1,4 +1,5 @@
 use protobuf;
+use uuid::Uuid;
 
 use {Message, RepeatedField, parse_from_bytes};
 
@@ -13,6 +14,7 @@ mod tests {
         let result = RemediationResult {
             result: Ok(()),
             alerts: vec![],
+            uuid: Uuid::new_v4(),
         };
 
         let plugin_result: plugin::RemediationResult = result.clone().into();
@@ -39,7 +41,9 @@ mod tests {
         r = r.with_alerts(vec![Alert::default(), Alert::default()]);
         assert_eq!(r.alerts.len(), 3);
 
-        let r2 = RemediationResult::from_string(&String::from_utf8_lossy(&r.clone().write_to_bytes().unwrap()).into_owned());
+        let r2 = RemediationResult::from_string(&String::from_utf8_lossy(
+            &r.clone().write_to_bytes().unwrap(),
+        ).into_owned());
 
         assert_eq!(r, r2);
     }
@@ -62,6 +66,7 @@ use plugin;
 pub struct RemediationResult {
     pub result: Result<(), String>,
     pub alerts: Vec<Alert>,
+    pub uuid: Uuid,
 }
 
 impl RemediationResult {
@@ -69,6 +74,7 @@ impl RemediationResult {
         RemediationResult {
             result: Ok(()),
             alerts: vec![],
+            uuid: Uuid::new_v4(),
         }
     }
 
@@ -113,15 +119,17 @@ impl<'a> From<&'a plugin::RemediationResult> for RemediationResult {
     fn from(result: &plugin::RemediationResult) -> RemediationResult {
         RemediationResult {
             result: match result.get_result() {
-                plugin::RemediationResult_ResultType::OK => {
-                    Ok(())
-                }, plugin::RemediationResult_ResultType::ERR => {
+                plugin::RemediationResult_ResultType::OK => Ok(()),
+                plugin::RemediationResult_ResultType::ERR => {
                     Err(result.get_error_msg().to_string())
                 }
             },
-            alerts: result.get_alerts().iter()
+            alerts: result
+                .get_alerts()
+                .iter()
                 .map(|alert| alert.into())
                 .collect(),
+            uuid: result.get_uuid().into(),
         }
     }
 }
@@ -150,6 +158,7 @@ impl From<RemediationResult> for plugin::RemediationResult {
             alerts.push(alert.into());
         }
         a.set_alerts(alerts);
+        a.set_uuid(result.uuid.into());
         a
     }
 }

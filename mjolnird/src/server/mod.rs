@@ -18,7 +18,8 @@ mod agent;
 
 use protobuf::Message as ProtobufMsg;
 
-use mjolnir_api::{Operation, parse_from_bytes, PluginEntry, Remediation, RemediationResult, OperationType as OpType};
+use mjolnir_api::{Operation, parse_from_bytes, PluginEntry, Remediation, RemediationResult,
+                  OperationType as OpType};
 
 use mjolnir::Pipeline;
 
@@ -62,7 +63,7 @@ mod tests {
 }
 
 pub fn reload<T: AsRef<str>>(master: &Master, pubkey: T) {
-    match connect(&master.ip, master.zmq_port, pubkey.as_ref()){
+    match connect(&master.ip, master.zmq_port, pubkey.as_ref()) {
         Ok(socket) => {
             let mut o = Operation::new();
             println!("Asking {} to reload", master.ip);
@@ -71,8 +72,8 @@ pub fn reload<T: AsRef<str>>(master: &Master, pubkey: T) {
             let encoded = o.write_to_bytes().unwrap();
             let msg = Message::from_slice(&encoded).unwrap();
             match socket.send_msg(msg, 0) {
-                Ok(_s) => {},
-                Err(e) => println!("Problem sending reload: {:?}", e)
+                Ok(_s) => {}
+                Err(e) => println!("Problem sending reload: {:?}", e),
             }
         }
         Err(e) => println!("problem connecting to socket: {:?}", e),
@@ -84,7 +85,7 @@ pub fn bind(config: Config) -> ZmqResult<()> {
     match &config.mode {
         &Mode::Agent => agent::Agent::bind(config),
         &Mode::Master => master::Master::bind(config),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -163,11 +164,17 @@ fn zmq_listen(
     let context = zmq::Context::new();
     let mut responder = context.socket(zmq::REP)?;
     {
-        let config = config.read().expect("Couldn't setup zmq bind, need read lock on config");
+        let config = config.read().expect(
+            "Couldn't setup zmq bind, need read lock on config",
+        );
         trace!("Listening on {}", config.zmq_address());
         // Fail to start if this fails
         setup_curve(&mut responder, &config)?;
-        assert!(responder.bind(&format!("tcp://{}:{}", config.bind_ip, config.zmq_port)).is_ok());
+        assert!(
+            responder
+                .bind(&format!("tcp://{}:{}", config.bind_ip, config.zmq_port))
+                .is_ok()
+        );
     }
     trace!("Going into the zmq loop");
     let duration = Duration::from_millis(10);
@@ -199,7 +206,12 @@ fn zmq_listen(
 }
 
 pub(crate) fn get_master_pubkey(master: &Master) -> Option<String> {
-    if let Ok(mut resp) = reqwest::get(&format!("http://{}:{}/pubkey.pem", master.ip, master.http_port)) {
+    if let Ok(mut resp) = reqwest::get(&format!(
+        "http://{}:{}/pubkey.pem",
+        master.ip,
+        master.http_port
+    ))
+    {
         let status = resp.status();
         if !status.is_success() {
             return None;
@@ -233,16 +245,27 @@ fn run_plugin(plugin: &PluginEntry, remediation: &Remediation) -> RemediationRes
             cmd.arg(&arg);
         }
     }
-    cmd.arg(format!("remediation={}", encode(&remediation.clone().write_to_bytes().unwrap())));
+    cmd.arg(format!(
+        "remediation={}",
+        encode(&remediation.clone().write_to_bytes().unwrap())
+    ));
     // info!("Command is: {:?}", cmd);
     match cmd.output() {
         Ok(output) => {
             match String::from_utf8(output.stdout) {
                 Ok(s) => RemediationResult::from_string(&s),
-                Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment()),
+                Err(e) => {
+                    RemediationResult::new()
+                        .err(format!("{:?}", e))
+                        .with_alert(remediation.alert.clone().unwrap().increment())
+                }
             }
         }
-        Err(e) => RemediationResult::new().err(format!("{:?}", e)).with_alert(remediation.alert.clone().unwrap().increment())
+        Err(e) => {
+            RemediationResult::new()
+                .err(format!("{:?}", e))
+                .with_alert(remediation.alert.clone().unwrap().increment())
+        }
     }
 }
 
@@ -252,16 +275,19 @@ fn plugins(path: &PathBuf) -> Vec<PluginEntry> {
         for file in dir {
             if let Ok(file) = file {
                 if let Ok(output) = Command::new(file.path()).output() {
-                    match PluginEntry::try_from(
-                        &output.stdout,
-                        &file.path(),
-                    ) {
+                    match PluginEntry::try_from(&output.stdout, &file.path()) {
                         Ok(plugin) => {
                             if !plugins.contains(&plugin) {
                                 plugins.push(plugin);
                             }
                         }
-                        Err(e) => warn!("Had a problem loading plugin at {}: {:?}", file.path().display(), e)
+                        Err(e) => {
+                            warn!(
+                                "Had a problem loading plugin at {}: {:?}",
+                                file.path().display(),
+                                e
+                            )
+                        }
                     }
                 }
             }
@@ -270,17 +296,17 @@ fn plugins(path: &PathBuf) -> Vec<PluginEntry> {
     plugins
 }
 
-fn pipelines(config: &Config, plugins: &Vec<PluginEntry>) -> Vec<Pipeline>{
+fn pipelines(config: &Config, plugins: &Vec<PluginEntry>) -> Vec<Pipeline> {
     let pipelines = {
         let pipelines = &config.pipelines;
 
         match validate(&pipelines, plugins) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(e) => panic!("Couldn't load plugin that matches your pipeline: {:?}", e),
         }
 
         pipelines.clone()
-        
+
     };
     pipelines
 }
@@ -288,7 +314,10 @@ fn pipelines(config: &Config, plugins: &Vec<PluginEntry>) -> Vec<Pipeline>{
 fn validate(pipelines: &Vec<Pipeline>, plugins: &Vec<PluginEntry>) -> Result<(), String> {
     for pipeline in pipelines {
         for action in &pipeline.actions {
-            debug!("Validating we have a plugin configured for '{}'", action.plugin);
+            debug!(
+                "Validating we have a plugin configured for '{}'",
+                action.plugin
+            );
             if !plugins.iter().any(|p| p.name == action.plugin) {
                 return Err(format!("{} has no matching plugin", action.plugin));
             }

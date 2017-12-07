@@ -1,5 +1,7 @@
 use std::net::IpAddr;
 
+use uuid::Uuid;
+
 use proto;
 
 #[cfg(test)]
@@ -16,6 +18,7 @@ mod tests {
             "awesome.local",
             "supersecret",
             "pub_key",
+            Uuid::new_v4(),
         );
 
         let request: proto::agent::Register = register.clone().into();
@@ -29,7 +32,14 @@ mod tests {
 
     #[test]
     fn it_serializes_and_deserializes_with_ipv6() {
-        let register = Register::new("::".parse().unwrap(), 12011, "awesome.local", "supersecret", "pub_key");
+        let register = Register::new(
+            "::".parse().unwrap(),
+            12011,
+            "awesome.local",
+            "supersecret",
+            "pub_key",
+            Uuid::new_v4(),
+        );
 
         let request: proto::agent::Register = register.clone().into();
 
@@ -48,27 +58,31 @@ pub struct Register {
     pub hostname: String,
     pub secret: String,
     pub public_key: String,
+    pub uuid: Uuid,
 }
 
 impl Register {
-    pub fn new<T1, T2, T3>(
+    pub fn new<T1, T2, T3, T4>(
         ip: IpAddr,
         port: u16,
         hostname: T1,
         secret: T2,
         public_key: T3,
-    ) -> Register 
+        uuid: T4,
+    ) -> Register
     where
         T1: Into<String>,
         T2: Into<String>,
-        T3: Into<String>
-        {
+        T3: Into<String>,
+        T4: Into<Uuid>,
+    {
         Register {
             ip: ip,
             port: port,
             hostname: hostname.into(),
             secret: secret.into(),
             public_key: public_key.into(),
+            uuid: uuid.into(),
         }
     }
 }
@@ -81,6 +95,7 @@ impl Into<proto::agent::Register> for Register {
         register.set_port(self.port as i32);
         register.set_secret(self.secret);
         register.set_public_key(self.public_key);
+        register.set_uuid(self.uuid.into());
         register
     }
 }
@@ -99,6 +114,7 @@ impl<'a> From<&'a proto::agent::Register> for Register {
             port: register.get_port() as u16,
             secret: register.get_secret().into(),
             public_key: register.get_public_key().into(),
+            uuid: register.get_uuid().into(),
         }
     }
 }

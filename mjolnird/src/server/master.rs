@@ -1,5 +1,5 @@
 use std::time::{Instant, Duration};
-use std::fs::{File};
+use std::fs::File;
 use std::io::{self, Read};
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
@@ -18,12 +18,15 @@ use hyper::server::{Http, Request, Response, Service};
 use hyper::{Body, Chunk, Method, StatusCode};
 use hyper::header::ContentLength;
 
+use uuid::Uuid;
+
 use zmq::{Message, Result as ZmqResult, Socket};
 
 use protobuf::Message as ProtobufMsg;
 
 use mjolnir::Pipeline;
-use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register, RemediationResult, Remediation};
+use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register,
+                  RemediationResult, Remediation};
 use server::{zmq_listen, connect, run_plugin, plugins, pipelines};
 use config::Config;
 
@@ -79,7 +82,8 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now(),
-            public_key: "pub_key".into()
+            public_key: "pub_key".into(),
+            uuid: Uuid::new_v4(),
         };
 
         let a2 = Agent {
@@ -87,7 +91,8 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now() + Duration::from_secs(100),
-            public_key: "pub_key".into()
+            public_key: "pub_key".into(),
+            uuid: Uuid::new_v4(),
         };
 
         assert_eq!(a1.clone(), a2);
@@ -97,7 +102,8 @@ mod tests {
             hostname: "test".into(),
             port: 8080,
             last_seen: Instant::now(),
-            public_key: "pub_key".into()
+            public_key: "pub_key".into(),
+            uuid: Uuid::new_v4(),
         };
 
         assert_ne!(a1, a3);
@@ -126,7 +132,10 @@ mod tests {
                     source: Some("test".into()),
                     args: vec!["testarg=value".into()],
                     next_remediation: 0,
-                }],
+                    uuid: Uuid::new_v4(),
+                },
+            ],
+            uuid: Uuid::new_v4(),
         };
 
         let plugin_result: plugin::RemediationResult = result.clone().into();
@@ -138,15 +147,19 @@ mod tests {
         let action = receiver.try_recv().unwrap();
         match action {
             MasterAction::Alert(alert) => {
-                assert_eq!(alert, Alert {
-                    alert_type: "Test".into(),
-                    name: Some("placeholder".into()),
-                    source: Some("test".into()),
-                    args: vec!["testarg=value".into()],
-                    next_remediation: 0,
-                });
-            },
-            _ => unreachable!()
+                assert_eq!(
+                    alert,
+                    Alert {
+                        alert_type: "Test".into(),
+                        name: Some("placeholder".into()),
+                        source: Some("test".into()),
+                        args: vec!["testarg=value".into()],
+                        next_remediation: 0,
+                        uuid: Uuid::new_v4(),
+                    }
+                );
+            }
+            _ => unreachable!(),
         }
     }
 }
@@ -158,6 +171,7 @@ struct Agent {
     port: u16,
     last_seen: Instant,
     public_key: String,
+    uuid: Uuid,
 }
 
 impl PartialEq for Agent {
@@ -174,7 +188,7 @@ impl PartialEq for Agent {
 // }
 impl Agent {
     pub fn remediate(&self, alert: Alert, remediation: &Remediation) {
-        match connect(&self.ip.to_string(), self.port, &self.public_key){
+        match connect(&self.ip.to_string(), self.port, &self.public_key) {
             Ok(socket) => {
                 let mut o = Operation::new();
                 o.set_operation_type(OpType::REMEDIATE);
@@ -185,8 +199,8 @@ impl Agent {
                 let encoded = o.write_to_bytes().unwrap();
                 let msg = Message::from_slice(&encoded).unwrap();
                 match socket.send_msg(msg, 0) {
-                    Ok(_s) => {},
-                    Err(e) => warn!("Problem sending remediation request: {:?}", e)
+                    Ok(_s) => {}
+                    Err(e) => warn!("Problem sending remediation request: {:?}", e),
                 }
             }
             Err(e) => warn!("problem connecting to socket: {:?}", e),
@@ -254,7 +268,7 @@ impl Master {
                 sender: sender,
                 config: Arc::new(RwLock::new(config)),
             },
-            receiver
+            receiver,
         )
     }
 
@@ -276,7 +290,7 @@ impl Master {
             Error = hyper::Error,
         >,
     > {
-        let hook =  {
+        let hook = {
             let plugins = match self.plugins.read() {
                 Ok(p) => p,
                 Err(e) => {
@@ -301,7 +315,7 @@ impl Master {
                             let _ = sender.send(MasterAction::Webhook(webhook_output));
                         }
                         Box::new(Body::from("Ok"))
-                    },
+                    }
                     Err(_) => Box::new(Body::from("Invalid Body")),
                 }
             } else {
@@ -317,7 +331,8 @@ impl Master {
 
     pub fn bind(config: Config) -> ZmqResult<()> {
         let (mut master, receiver) = Master::new(config.clone());
-        master = master.with_plugin_path(config.plugin_path.clone())
+        master = master
+            .with_plugin_path(config.plugin_path.clone())
             .load_plugins();
         master.load_pipelines();
 
@@ -327,52 +342,55 @@ impl Master {
         let closure_master = master.clone();
         thread::spawn(move || {
             let master_server = move || Ok(closure_master.clone());
-            let server = Http::new().bind(&(http_config.bind_ip, http_config.http_port).to_socket_addrs().unwrap().next().unwrap(), master_server)?;
+            let server = Http::new().bind(
+                &(http_config.bind_ip, http_config.http_port)
+                    .to_socket_addrs()
+                    .unwrap()
+                    .next()
+                    .unwrap(),
+                master_server,
+            )?;
             server.run()
         });
         let background_agents = master.agents.clone();
         let ping_duration = Duration::from_millis(500);
         let mpsc_duration = Duration::from_millis(50);
-        thread::spawn(move|| {
-            loop {
-                if let Ok(agents) = background_agents.try_lock() {
-                    for agent in agents.iter() {
-                        match connect(&agent.hostname, agent.port, &agent.public_key){
-                            Ok(socket) => {
-                                let mut o = Operation::new();
-                                o.set_operation_type(OpType::PING);
+        thread::spawn(move || loop {
+            if let Ok(agents) = background_agents.try_lock() {
+                for agent in agents.iter() {
+                    match connect(&agent.hostname, agent.port, &agent.public_key) {
+                        Ok(socket) => {
+                            let mut o = Operation::new();
+                            o.set_operation_type(OpType::PING);
 
-                                let encoded = o.write_to_bytes().unwrap();
-                                let msg = Message::from_slice(&encoded).unwrap();
-                                match socket.send_msg(msg, 0) {
-                                    Ok(_s) => {},
-                                    Err(e) => warn!("Problem sending ping: {:?}", e)
-                                }
+                            let encoded = o.write_to_bytes().unwrap();
+                            let msg = Message::from_slice(&encoded).unwrap();
+                            match socket.send_msg(msg, 0) {
+                                Ok(_s) => {}
+                                Err(e) => warn!("Problem sending ping: {:?}", e),
                             }
-                            Err(e) => warn!("problem connecting to socket: {:?}", e),
                         }
+                        Err(e) => warn!("problem connecting to socket: {:?}", e),
                     }
-                } else {
-                    warn!("Failed to lock agents mutex for PING");
                 }
-            
-                thread::sleep(ping_duration);
+            } else {
+                warn!("Failed to lock agents mutex for PING");
             }
+
+            thread::sleep(ping_duration);
         });
         let bg_master = master.clone();
-        thread::spawn(move|| {
-            loop {
-                match receiver.try_recv() {
-                    Ok(s) => {
-                        match s {
-                            MasterAction::Webhook(s) => bg_master.handle_webhook(s),
-                            MasterAction::Alert(alert) => bg_master.remediate(alert)
-                        }
-                    },
-                    Err(_e) => {},
+        thread::spawn(move || loop {
+            match receiver.try_recv() {
+                Ok(s) => {
+                    match s {
+                        MasterAction::Webhook(s) => bg_master.handle_webhook(s),
+                        MasterAction::Alert(alert) => bg_master.remediate(alert),
+                    }
                 }
-                thread::sleep(mpsc_duration);
+                Err(_e) => {}
             }
+            thread::sleep(mpsc_duration);
         });
         let _ = master.setup_zmq()?;
         thread::park();
@@ -391,17 +409,24 @@ impl Master {
             info!("Remediating {:?}", alert);
             if let Some(source) = alert.source.clone() {
                 if let Ok(agents) = self.agents.try_lock() {
-                    if let Some(agent) = agents.iter().find(|a| a.hostname == source || a.ip.to_string() == source).clone() {
+                    if let Some(agent) = agents
+                        .iter()
+                        .find(|a| a.hostname == source || a.ip.to_string() == source)
+                        .clone()
+                    {
                         info!("Have an agent: {:?}", agent);
-                        if let Some(ref action) = pipeline.actions.get(alert.next_remediation as usize) {
+                        if let Some(ref action) = pipeline.actions.get(
+                            alert.next_remediation as usize,
+                        )
+                        {
                             agent.remediate(alert, action);
                         } else {
                             let res = self.remediate_default(alert);
                             match res.result {
-                                Ok(()) => {},
-                                Err(e) => error!("Default remediation Failed: {:?}", e),
+                                Ok(()) => {}
+                                Err(e) => warn!("Default remediation Failed: {:?}", e),
                             }
-                            
+
                         }
                     }
                 } else {
@@ -411,56 +436,93 @@ impl Master {
             } else {
                 // TODO : process alerts that have no target
                 info!("PENDING : Handle alerts with no target");
-                let res = self.remediate_default(alert);
-                match res.result {
-                    Ok(()) => {},
-                    Err(e) =>error!("Default remediation Failed: {:?}", e),
+                if let Some(action) = pipeline.actions.get(alert.next_remediation as usize) {
+                    self.run_remediation(alert, action.clone());
+                } else {
+                    let res = self.remediate_default(alert);
+                    match res.result {
+                        Ok(()) => {}
+                        Err(e) => error!("Default remediation Failed: {:?}", e),
+                    }
+
                 }
             }
         } else {
 
-            warn!("No pipeline configured for {}/{:?}, falling back to default", alert.alert_type, alert.name);
+            warn!(
+                "No pipeline configured for {}/{:?}, falling back to default",
+                alert.alert_type,
+                alert.name
+            );
             let res = self.remediate_default(alert);
             match res.result {
-                Ok(()) => {},
-                Err(e) => error!("Default remediation Failed: {:?}", e),
+                Ok(()) => {}
+                Err(e) => warn!("Default remediation Failed: {:?}", e),
             }
         }
-
-        
     }
 
     fn remediate_default(&self, alert: Alert) -> RemediationResult {
         let config = match self.config.read() {
             Ok(c) => c,
-            Err(e) => return RemediationResult::new().err(format!("Couldn't get read lock: {:?}", e))
+            Err(e) => {
+                return RemediationResult::new().err(format!("Couldn't get read lock: {:?}", e))
+            }
         };
 
-        if let Some(mut default) = config.default_remediation.clone() {
-            // agent.remediate(alert, &default);
-            let plugin_path = {
-                let mut plugin_path = config.plugin_path.clone();
-                plugin_path.push(&default.plugin);
-                plugin_path
-            };
-            let plugin = match Command::new(&plugin_path).output() {
-                Ok(output) => {
-                    match PluginEntry::try_from(
-                        &output.stdout,
-                        &plugin_path,
-                    ) {
-                        Ok(plugin) => plugin,
-                        Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
+        if let Some(default) = config.default_remediation.clone() {
+            self.run_remediation(alert, default)
+        } else {
+            warn!(
+                "Pipeline for {} is exhausted, please intervene manually",
+                alert.alert_type
+            );
+            RemediationResult::new()
+                .err(format!("No default remediation configured"))
+                .with_alert(alert.increment())
+        }
+    }
+
+    fn run_remediation(&self, alert: Alert, mut remediation: Remediation) -> RemediationResult {
+        let config = match self.config.read() {
+            Ok(c) => c,
+            Err(e) => {
+                return RemediationResult::new().err(format!("Couldn't get read lock: {:?}", e))
+            }
+        };
+
+        let plugin_path = {
+            let mut plugin_path = config.plugin_path.clone();
+            plugin_path.push(&remediation.plugin);
+            plugin_path
+        };
+        let plugin = match Command::new(&plugin_path).output() {
+            Ok(output) => {
+                match PluginEntry::try_from(&output.stdout, &plugin_path) {
+                    Ok(plugin) => plugin,
+                    Err(e) => {
+                        return RemediationResult::new()
+                            .err(format!(
+                                "Had a problem loading plugin at {}: {:?}",
+                                plugin_path.display(),
+                                e
+                            ))
+                            .with_alert(alert.increment())
                     }
                 }
-                Err(e) => return RemediationResult::new().err(format!("Had a problem loading plugin at {}: {:?}", plugin_path.display(), e)).with_alert(alert.increment())
-            };
-            default.alert =Some(alert);
-            run_plugin(&plugin, &default)
-        } else {
-            warn!("Pipeline for {} is exhausted, please intervene manually", alert.alert_type);
-            RemediationResult::new().err(format!("No default remediation configured")).with_alert(alert.increment())
-        }
+            }
+            Err(e) => {
+                return RemediationResult::new()
+                    .err(format!(
+                        "Had a problem loading plugin at {}: {:?}",
+                        plugin_path.display(),
+                        e
+                    ))
+                    .with_alert(alert.increment())
+            }
+        };
+        remediation.alert = Some(alert);
+        run_plugin(&plugin, &remediation)
     }
 
     fn setup_zmq(&self) -> ZmqResult<()> {
@@ -502,12 +564,15 @@ impl Master {
                                         port: register.port,
                                         last_seen: Instant::now(),
                                         public_key: register.public_key,
+                                        uuid: register.uuid,
                                     };
                                     let mut updated = false;
                                     {
-                                        let mut agents = agents.lock().expect("Couldn't lock agents");
+                                        let mut agents =
+                                            agents.lock().expect("Couldn't lock agents");
                                         {
-                                            let known = agents.iter_mut().filter(|a| **a == agent).nth(0);
+                                            let known =
+                                                agents.iter_mut().filter(|a| **a == agent).nth(0);
                                             if let Some(known_agent) = known {
                                                 known_agent.last_seen = agent.last_seen;
                                                 updated = true;
@@ -521,7 +586,7 @@ impl Master {
                                         debug!("#{} Agents", agents.len());
                                     }
                                 }
-                            },
+                            }
                             Err(e) => {
                                 warn!("Failed to get write lock: {:?}", e);
                                 return Ok(());
@@ -544,7 +609,7 @@ impl Master {
                                 let _ = sender.send(MasterAction::Alert(alert));
                             }
                         }
-                        
+
                     }
                     OpType::RELOAD => {
                         ack(responder)?;
@@ -561,18 +626,25 @@ impl Master {
                                             debug!("Reloaded plugins!");
                                             match boxed_pipelines.try_write() {
                                                 Ok(mut loaded_pipelines) => {
-                                                    // *loaded_plugins = plugins(config;
-                                                    // *loaded_pipelines = plugins(&config.plugin_path);
-                                                    *loaded_pipelines = pipelines(&config, &*loaded_plugins);
+                                                    *loaded_pipelines =
+                                                        pipelines(&config, &*loaded_plugins);
                                                     debug!("Reloaded pipelines!");
-                                                },
-                                                Err(e) => warn!("Failed to get write lock on pipelines: {:?}", e),
+                                                }
+                                                Err(e) => {
+                                                    warn!(
+                                                        "Failed to get write lock \
+                                                         on pipelines: {:?}",
+                                                        e
+                                                    )
+                                                }
                                             }
-                                        },
-                                        Err(e) => warn!("Failed to get write lock on plugins: {:?}", e),
+                                        }
+                                        Err(e) => {
+                                            warn!("Failed to get write lock on plugins: {:?}", e)
+                                        }
                                     }
-                                    break
-                                },
+                                    break;
+                                }
                                 Err(e) => warn!("Failed to get write lock: {:?}", e),
                             }
                             thread::sleep(Duration::from_millis(20));
@@ -604,8 +676,8 @@ impl Master {
                         Ok(c) => c,
                         Err(e) => {
                             warn!("Failed to get read lock: {:?}", e);
-                            return internal_server_error()
-                        },
+                            return internal_server_error();
+                        }
                     };
                     config.key_path.clone()
                 };
@@ -623,8 +695,8 @@ impl Master {
                                 Ok(c) => c,
                                 Err(e) => {
                                     warn!("Failed to get read lock: {:?}", e);
-                                    return internal_server_error()
-                                },
+                                    return internal_server_error();
+                                }
                             };
                             local_path_for_request(&format!("/{}", name), &config.plugin_path)
                         };
@@ -633,10 +705,8 @@ impl Master {
                         } else {
                             not_found(&req)
                         }
-                    },
-                    (_first, _second) => {
-                        not_found(&req)
-                    },
+                    }
+                    (_first, _second) => not_found(&req),
                 }
             }
             (&Method::Post, _) => {
@@ -645,14 +715,10 @@ impl Master {
                 let _ = parts.next();
                 match (parts.next(), parts.next()) {
                     (Some("webhook"), Some(name)) => self.webhook(name, req),
-                    (_first, _second) => {
-                        not_found(&req)
-                    },
+                    (_first, _second) => not_found(&req),
                 }
             }
-            _ => {
-                not_found(&req)
-            }
+            _ => not_found(&req),
         }
     }
 
@@ -674,12 +740,9 @@ impl Master {
             Ok(c) => {
                 match self.plugins.read() {
                     Ok(plugins) => self.pipelines = Arc::new(RwLock::new(pipelines(&c, &plugins))),
-                    Err(e) => {
-                        warn!("Failed to get RwLock on plugins: {:?}", e)
-                    }
+                    Err(e) => warn!("Failed to get RwLock on plugins: {:?}", e),
                 }
-                
-            },
+            }
             Err(e) => {
                 warn!("Failed to get RwLock: {:?}", e);
             }
@@ -713,11 +776,14 @@ fn local_path_for_request(request_path: &str, root_dir: &Path) -> Option<PathBuf
     Some(path)
 }
 
-fn read_file(path: &Path) -> Box<
+fn read_file(
+    path: &Path,
+) -> Box<
     Future<
         Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
-    >> {
+    >,
+> {
     match File::open(&path) {
         Ok(mut file) => {
             let mut buf = Vec::new();
@@ -738,37 +804,48 @@ fn read_file(path: &Path) -> Box<
         Err(e) => {
             match e.kind() {
                 io::ErrorKind::NotFound => {
-                    Box::new(futures::future::ok(Response::new()
-                        .with_status(StatusCode::NotFound)))
-                },
+                    Box::new(futures::future::ok(
+                        Response::new().with_status(StatusCode::NotFound),
+                    ))
+                }
                 _ => internal_server_error(),
             }
         }
     }
 }
 
-fn internal_server_error() -> Box<
+fn internal_server_error()
+    -> Box<
     Future<
         Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
-    >> {
-    Box::new(futures::future::ok(Response::new()
-        .with_status(StatusCode::InternalServerError)
-        .with_header(ContentLength(0))))
+    >,
+>
+{
+    Box::new(futures::future::ok(
+        Response::new()
+            .with_status(StatusCode::InternalServerError)
+            .with_header(ContentLength(0)),
+    ))
 }
 
-fn not_found(req: &Request) -> Box<
+fn not_found(
+    req: &Request,
+) -> Box<
     Future<
         Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
-    >> {
-        info!("Received request: {} {}", req.method(), req.path());
-        Box::new(futures::future::ok(Response::new()
+    >,
+> {
+    info!("Received request: {} {}", req.method(), req.path());
+    Box::new(futures::future::ok(
+        Response::new()
             .with_status(StatusCode::NotFound)
-            .with_header(ContentLength(0))))
+            .with_header(ContentLength(0)),
+    ))
 }
 
-fn ack(responder: &Socket) -> ZmqResult<()>{
+fn ack(responder: &Socket) -> ZmqResult<()> {
     let mut o = Operation::new();
     o.set_operation_type(OpType::ACK);
 

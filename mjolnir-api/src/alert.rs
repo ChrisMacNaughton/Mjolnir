@@ -1,5 +1,7 @@
 use super::proto::plugin;
 
+use uuid::Uuid;
+
 use protobuf;
 
 use {Message, RepeatedField, parse_from_bytes};
@@ -20,6 +22,7 @@ mod tests {
             source: Some("test".into()),
             args: vec!["testarg=value".into()],
             next_remediation: 0,
+            uuid: uuid(),
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -44,7 +47,9 @@ mod tests {
         alert = alert.increment();
         assert_eq!(alert.next_remediation, 1);
 
-        let alert2 = Alert::from_string(&String::from_utf8_lossy(&alert.clone().write_to_bytes().unwrap()).into_owned());
+        let alert2 = Alert::from_string(&String::from_utf8_lossy(
+            &alert.clone().write_to_bytes().unwrap(),
+        ).into_owned());
         assert_eq!(alert, alert2);
     }
 
@@ -56,6 +61,7 @@ mod tests {
             source: None,
             args: vec![],
             next_remediation: 0,
+            uuid: uuid(),
         };
 
         let request: plugin::Alert = alert.clone().into();
@@ -67,13 +73,16 @@ mod tests {
 
     #[test]
     fn it_can_convert_from_vec() {
-        let r = vec![Alert {
-            alert_type: "Test".into(),
-            name: None,
-            source: None,
-            args: vec![],
-            next_remediation: 0,
-        }];
+        let r = vec![
+            Alert {
+                alert_type: "Test".into(),
+                name: None,
+                source: None,
+                args: vec![],
+                next_remediation: 0,
+                uuid: uuid(),
+            },
+        ];
 
         let repeated = Alert::vec_to_repeated(&r);
         assert_eq!(r[0], repeated.first().unwrap().into());
@@ -105,15 +114,21 @@ name = "full-disk""#;
 #[derive(Clone, Debug, Deserialize, Serialize, Eq)]
 pub struct Alert {
     /// In config, this is referred to as type
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     pub alert_type: String,
     pub name: Option<String>,
     pub source: Option<String>,
-    #[serde(default="empty")]
+    #[serde(default = "empty")]
     pub args: Vec<String>,
     /// Master managed index into pipeline
-    #[serde(default="zero")]
+    #[serde(default = "zero")]
     pub next_remediation: u64,
+    #[serde(default = "uuid")]
+    pub uuid: Uuid,
+}
+
+fn uuid() -> Uuid {
+    Uuid::new_v4()
 }
 
 fn empty() -> Vec<String> {
@@ -133,6 +148,7 @@ impl Default for Alert {
             source: None,
             args: vec![],
             next_remediation: 0,
+            uuid: Uuid::new_v4(),
         }
     }
 }
@@ -159,6 +175,7 @@ impl<'a> From<&'a plugin::Alert> for Alert {
             },
             args: alert.get_args().into(),
             next_remediation: alert.get_next_remediation(),
+            uuid: alert.get_uuid().into(),
         }
     }
 }
@@ -185,6 +202,7 @@ impl<'a> From<&'a Alert> for plugin::Alert {
         }
         a.set_args(repeated_args);
         a.set_next_remediation(alert.next_remediation);
+        a.set_uuid(alert.uuid.into());
         // d.set_alerts()
         a
     }
@@ -216,13 +234,12 @@ impl Alert {
     }
 
     pub fn new<T: Into<String>>(alert_type: T) -> Alert {
-        Alert {
-            alert_type: alert_type.into(),
-            name: None,
-            source: None,
-            args: vec![],
-            next_remediation: 0
-        }
+        Alert::default().with_alert_type(alert_type)
+    }
+
+    pub fn with_alert_type<T: Into<String>>(mut self, alert_type: T) -> Self {
+        self.alert_type = alert_type.into();
+        self
     }
 
     pub fn with_name<T: Into<String>>(mut self, name: T) -> Self {
