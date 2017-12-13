@@ -3,10 +3,9 @@ extern crate mjolnir_api;
 
 use std::collections::HashMap;
 use std::env;
-use std::fs;
 use std::process::{self, Command};
 use std::io::{self, Write};
-use std::time::{Instant};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use mjolnir_api::{Alert, Discover, RemediationResult, Remediation};
 
@@ -54,28 +53,30 @@ fn clean(args: HashMap<String, String>) -> RemediationResult {
     let result = RemediationResult::new();
     //  ZFS snapshot $TARGET@$NOW
     let path: String = if let Some(path) = args.get("path") {
-        path
+        path.clone()
     } else {
         return result.err(format!("Missing required argument: Path"));
     };
     let target: Option<String> = if let Some(target) = args.get("target") {
-        Some(target)
+        Some(target.clone())
     } else {
         None
     };
     let proto: String = if let Some(proto) = args.get("proto") {
-        proto
+        proto.clone()
     } else {
         return result.err(format!("Missing required argument: Proto"));
-    }
-    match proto {
+    };
+    match &proto[..] {
         "zfs" => {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH)
+                .expect("Time went backwards");
             match Command::new("zfs")
                 .arg("snapshot")
-                .arg(format!("{}@{}", path, Instand::now())
-                .run() {
+                .arg(format!("{}@{}", path, now.as_secs()))
+                .output() {
                     Ok(_) => {},
-                    Err(e) => return result.err(format!("Error snapshotting: {:?}", err));
+                    Err(e) => return result.err(format!("Error snapshotting: {:?}", e)),
                 }
         },
         _ => {

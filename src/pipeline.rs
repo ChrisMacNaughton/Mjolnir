@@ -33,8 +33,14 @@ plugin = "alert""#;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub enum Trigger {
+    Alert(Alert),
+    Timer(String),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Pipeline {
-    pub trigger: Alert,
+    pub trigger: Trigger,
     #[serde(default = "empty")]
     pub actions: Vec<Remediation>,
     #[serde(default = "uuid")]
