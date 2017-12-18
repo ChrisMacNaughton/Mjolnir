@@ -9,7 +9,6 @@ use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread;
 
 use futures;
-// use futures::future::Future;
 use futures::{Future, Stream};
 
 use hyper;
@@ -24,7 +23,7 @@ use zmq::{Message, Result as ZmqResult, Socket};
 
 use protobuf::Message as ProtobufMsg;
 
-use mjolnir::Pipeline;
+use mjolnir::{Pipeline, Trigger};
 use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register,
                   RemediationResult, Remediation};
 use server::{zmq_listen, connect, run_plugin, plugins, pipelines};
@@ -405,7 +404,8 @@ impl Master {
                 return;
             }
         };
-        if let Some(pipeline) = pipelines.iter().find(|p| p.trigger == alert) {
+        let trigger = Trigger::Alert(alert.clone());
+        if let Some(pipeline) = pipelines.iter().find(|p| p.trigger == trigger) {
             info!("Remediating {:?}", alert);
             if let Some(source) = alert.source.clone() {
                 if let Ok(agents) = self.agents.try_lock() {

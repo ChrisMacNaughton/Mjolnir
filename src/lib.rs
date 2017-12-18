@@ -8,7 +8,7 @@ extern crate mjolnir_api;
 
 mod pipeline;
 
-pub use pipeline::Pipeline;
+pub use pipeline::{Pipeline, Trigger};
 
 #[cfg(test)]
 mod tests {

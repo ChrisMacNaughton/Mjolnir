@@ -4,3 +4,4 @@ Cargo.lock
 mjolnir-api/src/proto
 examples/configs/ecpubkey*
 *.deb
+rls*.log

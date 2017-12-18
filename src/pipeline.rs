@@ -8,7 +8,7 @@ mod tests {
     use toml;
 
     #[test]
-    fn it_parses_a_pipeline_from_toml() {
+    fn it_parses_alert_pipelines() {
         let s = r#"
 [trigger]
 type = "alertmanager" # The type of alert to match on
@@ -16,13 +16,74 @@ name = "full-disk" # Optionally, the name that the alert provides
 
 [[actions]]
 
-plugin = "clean-disk"
+plugin = "clean_disk"
 
 [[actions]]
 
 plugin = "alert""#;
         let pipeline: Pipeline = toml::from_str(s).unwrap();
         println!("Pipeline: {:?}", pipeline);
+
+        assert_eq!(pipeline.trigger, Trigger::Alert(Alert::new("alertmanager").with_name("full-disk")));
+        assert_eq!(pipeline.actions.iter().map(|ref a| &a.plugin).collect::<Vec<&String>>(), vec!["clean_disk", "alert"]);
+    }
+
+    #[test]
+    fn it_parses_timer_pipelines() {
+        let s = r#"
+  [trigger]
+    timer = "0 5 * * *" # 5 AM daily
+
+  [[actions]]
+    plugin = "backup"
+    args = ["path=/home/chris", "proto=zfs"]
+"#;
+        let pipeline: Pipeline = toml::from_str(s).unwrap();
+        println!("Pipeline: {:?}", pipeline);
+        assert_eq!(pipeline.trigger, Trigger::Timer{timer: "0 5 * * *".into()});
+        assert_eq!(pipeline.actions.iter().map(|ref a| &a.plugin).collect::<Vec<&String>>(), vec!["backup"]);
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    struct Test {
+        pipelines: Vec<Pipeline>,
+    }
+
+    #[test]
+    fn it_parses_complex_pipelines() {
+        let s = r#"
+[[pipelines]]
+
+  [pipelines.trigger]
+    type = "alertmanager"
+    name = "full-disk"
+
+  [[pipelines.actions]]
+    plugin = "clean_disk"
+
+  [[pipelines.actions]]
+    plugin = "alert"
+    
+[[pipelines]]
+  
+  [pipelines.trigger]
+    timer = "0 5 * * *" # 5 AM daily
+
+  [[pipelines.actions]]
+    plugin = "backup"
+    args = ["path=/home/chris", "proto=zfs"]
+"#;
+        let test: Test = toml::from_str(s).unwrap();
+        let pipelines = test.pipelines;
+        println!("Pipeline: {:?}", pipelines);
+
+        let pipeline = &pipelines[0];
+        assert_eq!(pipeline.trigger, Trigger::Alert(Alert::new("alertmanager").with_name("full-disk")));
+        assert_eq!(pipeline.actions.iter().map(|ref a| &a.plugin).collect::<Vec<&String>>(), vec!["clean_disk", "alert"]);
+
+        let pipeline = &pipelines[1];
+        assert_eq!(pipeline.trigger, Trigger::Timer{timer: "0 5 * * *".into()});
+        assert_eq!(pipeline.actions.iter().map(|ref a| &a.plugin).collect::<Vec<&String>>(), vec!["backup"]);
     }
 
     #[test]
@@ -33,9 +94,10 @@ plugin = "alert""#;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(untagged)]
 pub enum Trigger {
     Alert(Alert),
-    Timer(String),
+    Timer { timer: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
