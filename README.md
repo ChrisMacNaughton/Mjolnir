@@ -19,5 +19,6 @@ After a new problem has been identified, it should be fairly trivial to create a
 ### Alerting
 
 - [Email](https://gogs.centauri.solutions/Mjolnir/email)
+- [Grafana](https://gogs.centauri.solutions/Mjolnir/grafana)
 - [Slack](https://gogs.centauri.solutions/Mjolnir/slack)
 - [Telegram](https://gogs.centauri.solutions/Mjolnir/telegram)
