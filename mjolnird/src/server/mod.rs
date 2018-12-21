@@ -11,7 +11,7 @@ use base64::encode;
 use reqwest;
 use zmq::{self, Message, Socket, Result as ZmqResult};
 
-use config::{Config, Master, Mode};
+use crate::config::{Config, Master, Mode};
 
 mod master;
 mod agent;
@@ -158,7 +158,7 @@ Server that manages disks
 */
 fn zmq_listen(
     config: &Arc<RwLock<Config>>,
-    callback: Box<Fn(Operation, &Socket) -> ZmqResult<()>>,
+    callback: Box<dyn Fn(Operation, &Socket) -> ZmqResult<()>>,
 ) -> ZmqResult<()> {
     trace!("Starting zmq listener with version({:?})", zmq::version());
     let context = zmq::Context::new();

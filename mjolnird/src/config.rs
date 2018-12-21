@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use log::LogLevel;
+use log::Level;
 use toml;
 use xdg;
 
@@ -162,7 +162,7 @@ pub struct Config {
     pub key_path: PathBuf,
     pub pipelines: Vec<Pipeline>,
     pub default_remediation: Option<Remediation>,
-    pub log_level: LogLevel,
+    pub log_level: Level,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -267,7 +267,7 @@ impl<'a, 'b> Config {
         Config::from_args(Config::matches().get_matches())
     }
 
-    pub fn from_args(matches: ArgMatches) -> Config {
+    pub fn from_args(matches: ArgMatches<'_>) -> Config {
         let mode = match matches.subcommand() {
             ("master", Some(_master_matches)) => Mode::Master,
             ("agent", Some(_agent_matches)) => Mode::Agent,
@@ -422,10 +422,10 @@ impl<'a, 'b> Config {
             default_remediation: config_file.default_remediation,
             secret: config_file.secret.expect("A shared secret is required"),
             log_level: match matches.occurrences_of("debug") {
-                0 => LogLevel::Warn,
-                1 => LogLevel::Info,
-                2 => LogLevel::Debug,
-                3 | _ => LogLevel::Trace,
+                0 => Level::Warn,
+                1 => Level::Info,
+                2 => Level::Debug,
+                3 | _ => Level::Trace,
             },
         }
     }

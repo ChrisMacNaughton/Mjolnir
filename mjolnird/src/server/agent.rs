@@ -29,8 +29,8 @@ use protobuf::Message as ProtobufMsg;
 use uuid::Uuid;
 use zmq::{Message, Result as ZmqResult, Socket};
 
-use config::{Config, Master};
-use server::{connect, get_master_pubkey, run_plugin, server_pubkey, zmq_listen};
+use crate::config::{Config, Master};
+use crate::server::{connect, get_master_pubkey, run_plugin, server_pubkey, zmq_listen};
 
 #[derive(Clone)]
 pub struct Agent {
