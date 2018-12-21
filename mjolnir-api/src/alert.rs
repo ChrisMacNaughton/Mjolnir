@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use protobuf;
 
-use {Message, RepeatedField, parse_from_bytes};
+use crate::{Message, RepeatedField, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use plugin;
-use RepeatedField;
-use Alert;
-use Remediation;
+use crate::plugin;
+use crate::RepeatedField;
+use crate::Alert;
+use crate::Remediation;
 
 #[cfg(test)]
 mod tests {

@@ -1,9 +1,9 @@
-extern crate protobuf;
-extern crate serde;
+use protobuf;
+
 #[macro_use]
 extern crate serde_derive;
-extern crate toml;
-extern crate uuid;
+use toml;
+
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
@@ -17,10 +17,10 @@ pub mod proto;
 // pub mod plugin;
 // mod mjolnir;
 
-pub use proto::plugin::RemediationResult_ResultType as RemediationResultType;
-pub use proto::mjolnir::{Operation, OperationType};
+pub use crate::proto::plugin::RemediationResult_ResultType as RemediationResultType;
+pub use crate::proto::mjolnir::{Operation, OperationType};
 
-pub use proto::plugin;
+pub use crate::proto::plugin;
 
 mod discover;
 mod register;
@@ -29,12 +29,12 @@ mod plugin_entry;
 mod remediation;
 mod remediation_result;
 
-pub use discover::Discover;
-pub use register::Register;
-pub use alert::Alert;
-pub use plugin_entry::PluginEntry;
-pub use remediation::Remediation;
-pub use remediation_result::RemediationResult;
+pub use crate::discover::Discover;
+pub use crate::register::Register;
+pub use crate::alert::Alert;
+pub use crate::plugin_entry::PluginEntry;
+pub use crate::remediation::Remediation;
+pub use crate::remediation_result::RemediationResult;
 
 #[macro_export]
 macro_rules! plugin_list {

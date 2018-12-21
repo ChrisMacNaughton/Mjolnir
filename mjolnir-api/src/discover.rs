@@ -1,7 +1,7 @@
-use proto;
+use crate::proto;
 use protobuf::{self, Message};
 
-use {Alert, Remediation};
+use crate::{Alert, Remediation};
 
 #[cfg(test)]
 mod tests {
