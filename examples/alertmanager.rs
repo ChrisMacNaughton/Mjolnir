@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate mjolnir_api;
 
-extern crate serde;
-extern crate serde_json;
+
+use serde_json;
 
 #[macro_use]
 extern crate serde_derive;
