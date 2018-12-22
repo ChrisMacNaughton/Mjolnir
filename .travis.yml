@@ -1,5 +1,5 @@
-sudo: true
-dist: trusty
+# sudo: true
+dist: xenial
 
 language: rust
 
@@ -15,8 +15,8 @@ rust:
 addons:
   apt:
     sources:
-    - sourceline: 'ppa:chris-lea/libsodium'
-    - sourceline: 'ppa:alexhuang/libzmq'
+    # - sourceline: 'ppa:chris-lea/libsodium'
+    # - sourceline: 'ppa:alexhuang/libzmq'
     packages:
       # Cargo coverage dependencies
       - libcurl4-openssl-dev
@@ -27,8 +27,7 @@ addons:
       - protobuf-compiler
       - libprotobuf-dev
       - libsodium-dev
-      # Comes from alexhuang's ppa
-      - libzmq
+      - libzmq3-dev
 install:
   - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
@@ -39,7 +38,7 @@ script:
 jobs:
   include:
     - stage: functional
-      script: 
+      script:
       - sudo apt-get install snapd > /dev/null 2>&1
       - sudo snap install lxd --channel=stable > /dev/null 2>&1
       - export PATH=/snap/bin/:${PATH}
