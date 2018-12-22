@@ -29,12 +29,12 @@ addons:
       - libsodium-dev
       - libzmq3-dev
 install:
-  - cargo install cargo-travis || echo "Cargo travis is already installed!"
+  # - cargo install -f cargo-travis
   - export PATH=$HOME/.cargo/bin:$PATH
 
 script:
   - cargo test --all --verbose
-  - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs --all; fi
+  # - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs --all; fi
 jobs:
   include:
     - stage: functional
