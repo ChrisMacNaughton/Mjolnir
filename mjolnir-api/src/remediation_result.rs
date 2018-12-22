@@ -1,7 +1,7 @@
 use protobuf;
 use uuid::Uuid;
 
-use {Message, RepeatedField, parse_from_bytes};
+use crate::{Message, RepeatedField, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {
@@ -49,8 +49,8 @@ mod tests {
     }
 }
 
-use alert::Alert;
-use plugin;
+use crate::alert::Alert;
+use crate::plugin;
 
 // message RemediationResult {
 //   required ResultType result = 1;

@@ -27,8 +27,8 @@ use protobuf::Message as ProtobufMsg;
 use mjolnir::Pipeline;
 use mjolnir_api::{Alert, Operation, OperationType as OpType, PluginEntry, Register,
                   RemediationResult, Remediation};
-use server::{zmq_listen, connect, run_plugin, plugins, pipelines};
-use config::Config;
+use crate::server::{zmq_listen, connect, run_plugin, plugins, pipelines};
+use crate::config::Config;
 
 #[cfg(test)]
 mod tests {
@@ -227,11 +227,11 @@ impl Service for Master {
     // boilerplate hooking up hyper's server types
     type Request = Request;
     // type Response = Response;
-    type Response = Response<Box<Stream<Item = Chunk, Error = Self::Error>>>;
+    type Response = Response<Box<dyn Stream<Item = Chunk, Error = Self::Error>>>;
     type Error = hyper::Error;
     // The future representing the eventual Response your call will
     // resolve to. This can change to whatever Future you need.
-    type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+    type Future = Box<dyn Future<Item = Self::Response, Error = Self::Error>>;
 
     fn call(&self, req: Request) -> Self::Future {
         self.route(req)
@@ -285,8 +285,8 @@ impl Master {
         name: &str,
         req: Request,
     ) -> Box<
-        Future<
-            Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+        dyn Future<
+            Item = Response<Box<dyn Stream<Item = Chunk, Error = hyper::Error>>>,
             Error = hyper::Error,
         >,
     > {
@@ -308,7 +308,7 @@ impl Master {
         let sender = self.sender.clone();
         Box::new(req.body().concat2().map(move |body| {
             // let plugins = plugins.clone();
-            let body: Box<Stream<Item = _, Error = _>> = if let Some(hook) = hook {
+            let body: Box<dyn Stream<Item = _, Error = _>> = if let Some(hook) = hook {
                 match String::from_utf8(body.to_vec()) {
                     Ok(s) => {
                         if let Ok(webhook_output) = process_webhook(hook, s) {
@@ -321,7 +321,7 @@ impl Master {
             } else {
                 Box::new(Body::from("Unknown Webhook"))
             };
-            let mut response: Response<Box<Stream<Item = Chunk, Error = hyper::Error>>> =
+            let mut response: Response<Box<dyn Stream<Item = Chunk, Error = hyper::Error>>> =
                 Response::new();
 
             response.set_body(body);
@@ -664,8 +664,8 @@ impl Master {
         &self,
         req: Request,
     ) -> Box<
-        Future<
-            Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+        dyn Future<
+            Item = Response<Box<dyn Stream<Item = Chunk, Error = hyper::Error>>>,
             Error = hyper::Error,
         >,
     > {
@@ -779,8 +779,8 @@ fn local_path_for_request(request_path: &str, root_dir: &Path) -> Option<PathBuf
 fn read_file(
     path: &Path,
 ) -> Box<
-    Future<
-        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+    dyn Future<
+        Item = Response<Box<dyn Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
     >,
 > {
@@ -790,7 +790,7 @@ fn read_file(
             match file.read_to_end(&mut buf) {
                 Ok(_) => {
                     let len = buf.len();
-                    let body: Box<Stream<Item = _, Error = _>> = Box::new(Body::from(buf));
+                    let body: Box<dyn Stream<Item = _, Error = _>> = Box::new(Body::from(buf));
                     // response.set_body(body);
                     let response = Response::new()
                         .with_status(StatusCode::Ok)
@@ -816,8 +816,8 @@ fn read_file(
 
 fn internal_server_error()
     -> Box<
-    Future<
-        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+    dyn Future<
+        Item = Response<Box<dyn Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
     >,
 >
@@ -832,8 +832,8 @@ fn internal_server_error()
 fn not_found(
     req: &Request,
 ) -> Box<
-    Future<
-        Item = Response<Box<Stream<Item = Chunk, Error = hyper::Error>>>,
+    dyn Future<
+        Item = Response<Box<dyn Stream<Item = Chunk, Error = hyper::Error>>>,
         Error = hyper::Error,
     >,
 > {

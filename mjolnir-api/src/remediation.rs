@@ -1,9 +1,9 @@
 use protobuf;
 use uuid::Uuid;
 
-use plugin::{self, RemediationRequest};
-use alert::Alert;
-use {Message, RepeatedField, parse_from_bytes};
+use crate::plugin::{self, RemediationRequest};
+use crate::alert::Alert;
+use crate::{Message, RepeatedField, parse_from_bytes};
 
 #[cfg(test)]
 mod tests {

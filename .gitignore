@@ -1,3 +1,4 @@
+api
 /target/
 **/*.rs.bk
 Cargo.lock

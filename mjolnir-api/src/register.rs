@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use uuid::Uuid;
 
-use proto;
+use crate::proto;
 
 #[cfg(test)]
 mod tests {
