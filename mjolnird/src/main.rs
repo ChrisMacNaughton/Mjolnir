@@ -1,31 +1,31 @@
-extern crate base64;
+
 #[macro_use]
 extern crate clap;
-extern crate futures;
-extern crate hostname;
-extern crate hyper;
+use futures;
+
+use hyper;
 #[macro_use]
 extern crate log;
-extern crate protobuf;
-extern crate reqwest;
-extern crate serde;
+
+use reqwest;
+
 #[macro_use]
 extern crate serde_derive;
-extern crate simple_logger;
-extern crate tokio_core;
-extern crate toml;
-extern crate uuid;
-extern crate xdg;
-extern crate yaml_rust;
-extern crate zmq;
+use simple_logger;
+
+use toml;
+
+use xdg;
+
+use zmq;
 // workspace members
-extern crate mjolnir;
-extern crate mjolnir_api;
+
+
 
 mod config;
 mod server;
 
-use config::{Config, Mode, CliMode};
+use crate::config::{Config, Mode, CliMode};
 
 fn main() {
     println!("Welcome to Mjölnir");
