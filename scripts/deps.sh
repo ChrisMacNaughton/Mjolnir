@@ -11,7 +11,7 @@ function deps() {
     fi
     if [ "$distro" = "xenial" ]
         then
-        packages="$packages libzmq5-dev"
+        packages="$packages libzmq3-dev"
     fi
     lxc exec --verbose $container -- /bin/sh -c "apt-get update -q"
     lxc exec --verbose $container -- /bin/sh -c "apt-get install -yq $packages"
