@@ -1,4 +1,4 @@
-# sudo: true
+sudo: true
 dist: xenial
 
 language: rust
