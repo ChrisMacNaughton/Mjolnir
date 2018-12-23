@@ -28,7 +28,7 @@ then
 fi
 lxc launch ubuntu:xenial master
 sleep 5
-lxc show profile default
+lxc profile show default
 lxc list
 lxc profile unset core.proxy_http
 lxc profile unset default user.network_mode
