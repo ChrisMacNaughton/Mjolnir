@@ -26,7 +26,7 @@ if [ -n ${VERBOSE+x} ];
 then
     echo "Spawning Master"
 fi
-lxc launch ubuntu:xenial master > /dev/null 2>&1
+lxc launch ubuntu:xenial master
 sleep 5
 master_ip=`lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
 export master_ip
