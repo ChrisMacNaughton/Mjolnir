@@ -7,10 +7,10 @@ cache:
   cargo: true
   apt: true
 
-# rust:
-#   - stable
-#   - beta
-#   - nightly
+rust:
+  - stable
+  - beta
+  - nightly
 
 addons:
   apt:
@@ -33,7 +33,7 @@ install:
   - export PATH=$HOME/.cargo/bin:$PATH
 
 script:
-  # - cargo test --all --verbose
+  - cargo test --all --verbose
   # - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs --all; fi
 
 # TODO : Re-enable functional builds
@@ -42,12 +42,10 @@ jobs:
   include:
     - stage: functional
       script:
-      - env
       - sudo apt remove --purge lxd
       - sudo apt-get install snapd # > /dev/null 2>&1
       - sudo snap install lxd --channel=stable # > /dev/null 2>&1
       - export PATH=/snap/bin:${PATH}
-      - hash -r
       - sudo /snap/bin/lxd waitready --timeout 60
       - sudo /snap/bin/lxd init --auto
       - sudo /snap/bin/lxc network create testbr0 ipv6.address=none
