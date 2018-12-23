@@ -2,7 +2,7 @@
 
 set -euo pipefail
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-export lxc="/snap/bin/lxc"
+lxc="/snap/bin/lxc"
 
 . $SCRIPTPATH/../scripts/deps.sh
 . $SCRIPTPATH/../scripts/helpers.sh

@@ -52,7 +52,7 @@ jobs:
       - sudo /snap/bin/lxd init --auto
       - sudo /snap/bin/lxc network create testbr0 ipv6.address=none
       - /snap/bin/lxc network attach-profile testbr0 default eth0
-      # - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
+      - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
       - sudo usermod -a -G lxd travis
       - sudo su travis -c 'PATH=/snap/bin/:${PATH} VERBOSE=true tests/run.sh'
 
