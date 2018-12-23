@@ -29,7 +29,7 @@ fi
 lxc launch ubuntu:xenial master
 sleep 5
 lxc profile show default
-lxc profile unset default environment.proxy_http
+lxc profile unset default environment.http_proxy
 lxc profile unset default user.network_mode
 lxc profile show default
 master_ip=`lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
