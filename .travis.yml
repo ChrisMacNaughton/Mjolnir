@@ -42,6 +42,7 @@ jobs:
   include:
     - stage: functional
       script:
+      - env
       # - sudo apt-get install snapd > /dev/null 2>&1
       # - sudo snap install lxd --channel=stable > /dev/null 2>&1
       # - export PATH=/snap/bin/:${PATH}
