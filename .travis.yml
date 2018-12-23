@@ -42,11 +42,11 @@ jobs:
   include:
     - stage: functional
       script:
-      - sudo apt-get install snapd > /dev/null 2>&1
-      - sudo snap install lxd --channel=stable > /dev/null 2>&1
-      - export PATH=/snap/bin/:${PATH}
+      # - sudo apt-get install snapd > /dev/null 2>&1
+      # - sudo snap install lxd --channel=stable > /dev/null 2>&1
+      # - export PATH=/snap/bin/:${PATH}
       - sudo lxd waitready --timeout 60
-      - sudo lxd init --auto --storage-create-loop
+      - sudo lxd init --auto
       - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
       - sudo usermod -a -G lxd travis
       - sudo su travis -c 'PATH=/snap/bin/:${PATH} VERBOSE=true tests/run.sh'
