@@ -7,10 +7,10 @@ cache:
   cargo: true
   apt: true
 
-rust:
-  - stable
-  - beta
-  - nightly
+# rust:
+#   - stable
+#   - beta
+#   - nightly
 
 addons:
   apt:
@@ -33,7 +33,7 @@ install:
   - export PATH=$HOME/.cargo/bin:$PATH
 
 script:
-  - cargo test --all --verbose
+  # - cargo test --all --verbose
   # - if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then cargo coveralls --exclude-pattern tests/,mjolnir-api/src/proto/mjolnir.rs,mjolnir-api/src/proto/plugin.rs,mjolnir-api/src/proto/agent.rs --all; fi
 
 # TODO : Re-enable functional builds
