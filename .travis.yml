@@ -49,7 +49,7 @@ jobs:
       - sudo lxd init --auto
       - sudo lxc profile delete core.proxy_http
       - sudo lxc profile delete default user.network_mode
-      - sudo chown -r travis /home/travis/.config/lxc
+      - sudo chown -R travis /home/travis/.config/lxc
       # - sudo chmod 777 /var/snap/lxd/common/lxd/unix.socket
       - sudo usermod -a -G lxd travis
       - sudo su travis -c 'PATH=/snap/bin/:${PATH} VERBOSE=true tests/run.sh'
