@@ -1,3 +1,4 @@
+lxc="/snap/bin/lxc"
 function lxc_exec() {
     if [ -z "$1" ]
     then
@@ -13,5 +14,5 @@ function lxc_exec() {
     container=$1
     command=$2
 
-    lxc exec --verbose $container -- /bin/sh -c "$command"
+    $lxc exec --verbose $container -- /bin/sh -c "$command"
 }
