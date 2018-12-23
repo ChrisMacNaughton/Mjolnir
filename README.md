@@ -23,7 +23,7 @@ actions.  Multiple actions can be specified and they will be tried in order unti
     plugin = "clean_disk"
   [pipelines.trigger]
     type = "alertmanager"
-    name = "full-disk"
+    name = "full-disk" # This corresponds to the controllers webhook.  {controller_ip}:{controller_port}/webhook/full-disk
 [[pipelines]]
   [[pipelines.actions]]
     plugin = "reboot_server"
@@ -32,6 +32,7 @@ actions.  Multiple actions can be specified and they will be tried in order unti
     name = "server-down"
 ```
 ## Plugins
+
 
 ### Alerting
 
