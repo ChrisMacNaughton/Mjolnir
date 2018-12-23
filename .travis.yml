@@ -46,7 +46,8 @@ jobs:
       - sudo apt remove --purge lxd
       - sudo apt-get install snapd # > /dev/null 2>&1
       - sudo snap install lxd --channel=stable # > /dev/null 2>&1
-      - export PATH=/snap/bin/:${PATH}
+      - export PATH=/snap/bin:${PATH}
+      - hash -r
       - sudo lxd waitready --timeout 60
       - sudo lxd init --auto
       - sudo lxc network create testbr0 ipv6.address=none
