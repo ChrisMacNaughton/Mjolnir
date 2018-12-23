@@ -14,7 +14,25 @@ Mjolnir is designed to be agnostic to issues and the solutions to them; however,
 
 After a new problem has been identified, it should be fairly trivial to create a new plugin to solve the problem, and add it to the configured pipelines, allowing the administrators to solve a problem once, and then let Mjolnir solve it any time it happens in the future!
 
+## Specifying the plugin pipeline
+Pipelines are specified in the controllers configuration file using toml syntax.  Triggers are matched up against
+actions.  Multiple actions can be specified and they will be tried in order until one succeeds.  
+```
+[[pipelines]]
+  [[pipelines.actions]]
+    plugin = "clean_disk"
+  [pipelines.trigger]
+    type = "alertmanager"
+    name = "full-disk" # This corresponds to the controllers webhook.  {controller_ip}:{controller_port}/webhook/full-disk
+[[pipelines]]
+  [[pipelines.actions]]
+    plugin = "reboot_server"
+  [pipelines.trigger]
+    type = "alertmanager"
+    name = "server-down"
+```
 ## Plugins
+
 
 ### Alerting
 
