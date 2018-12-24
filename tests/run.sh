@@ -2,6 +2,7 @@
 
 set -euo pipefail
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+lxc="/snap/bin/lxc"
 
 . $SCRIPTPATH/../scripts/deps.sh
 . $SCRIPTPATH/../scripts/helpers.sh
@@ -26,28 +27,32 @@ if [ -n ${VERBOSE+x} ];
 then
     echo "Spawning Master"
 fi
-lxc launch ubuntu:xenial master > /dev/null 2>&1
+$lxc launch ubuntu:xenial master
 sleep 5
-master_ip=`lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
+$lxc profile show default
+$lxc profile unset default environment.http_proxy
+$lxc profile unset default user.network_mode
+$lxc profile show default
+master_ip=`$lxc list "master" -c 4 | awk '!/IPV4/{ if ( $2 != "" ) print $2}'`
 export master_ip
 if [ -n ${VERBOSE+x} ];
 then
     echo "Installing dependencies on Master"
 fi
 
-deps xenial master > /dev/null 2>&1
+deps xenial master > /dev/null
 
 if [ -n ${VERBOSE+x} ];
 then
     echo "Setting up Master for build"
 fi
 
-lxc exec master -- /bin/sh -c "/bin/mkdir -p /build"
+$lxc exec master -- /bin/sh -c "/bin/mkdir -p /build"
 # echo "Pushing files into container"
 tar --exclude-vcs --exclude=target -zcf - . | lxc exec --verbose master -- /bin/sh -c "/bin/tar zxf - -C /build"
 
-lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null 2>&1
-lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null 2>&1
+lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null
+lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null
 
 cat > config.toml <<EOF
 [mjolnir]
@@ -89,9 +94,9 @@ fi
 for i in $(seq 1 3)
 do
     # echo "Setting up agent-$i"
-    lxc copy master agent-$i || true
-    lxc start agent-$i || true
-    lxc file push ./systemd/mjolnird-agent.service agent-$i/etc/systemd/system/mjolnird-agent.service
+    $lxc copy master agent-$i || true
+    $lxc start agent-$i || true
+    $lxc file push ./systemd/mjolnird-agent.service agent-$i/etc/systemd/system/mjolnird-agent.service
     lxc_exec agent-$i "systemctl start mjolnird-agent"
 done
 
