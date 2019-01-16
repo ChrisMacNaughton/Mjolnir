@@ -36,7 +36,4 @@ actions.  Multiple actions can be specified and they will be tried in order unti
 
 ### Alerting
 
-- [Email](https://gogs.centauri.solutions/Mjolnir/email)
-- [Grafana](https://gogs.centauri.solutions/Mjolnir/grafana)
-- [Slack](https://gogs.centauri.solutions/Mjolnir/slack)
-- [Telegram](https://gogs.centauri.solutions/Mjolnir/telegram)
+Coming Soon!
