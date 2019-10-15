@@ -9,7 +9,9 @@ message Register {
   required int32 port = 2;
   required string hostname = 3;
   required string secret = 4;
-  required string public_key = 5;
+  // repeated uint32 public_key = 5 [packed=true];
+  required bytes public_key = 5;
+  // required string public_key = 5;
   required UUID uuid = 6;
 }
 

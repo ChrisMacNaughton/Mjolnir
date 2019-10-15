@@ -7,7 +7,7 @@ use crate::{Message, RepeatedField, parse_from_bytes};
 mod tests {
     use super::*;
 
-    pub use protobuf::core::{Message, parse_from_bytes};
+    pub use crate::{Message, parse_from_bytes};
 
     #[test]
     fn it_serializes_and_deserializes_ok() {

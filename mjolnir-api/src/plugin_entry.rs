@@ -9,7 +9,7 @@ use crate::Remediation;
 mod tests {
     use super::*;
 
-    use protobuf::core::{Message, parse_from_bytes};
+    use crate::{Message, parse_from_bytes};
     use uuid::Uuid;
 
     #[test]

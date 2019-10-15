@@ -1,23 +1,11 @@
-
 #[macro_use]
 extern crate clap;
-use futures;
-
-use hyper;
 #[macro_use]
 extern crate log;
-
-use reqwest;
 
 #[macro_use]
 extern crate serde_derive;
 use simple_logger;
-
-use toml;
-
-use xdg;
-
-use zmq;
 // workspace members
 
 

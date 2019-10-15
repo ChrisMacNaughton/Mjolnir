@@ -10,12 +10,12 @@ build = "build.rs"
 edition = '2018'
 
 [build-dependencies]
-protoc-rust = "1.4"
-protoc = "1.4"
+protoc-rust = "2.8.1"
+protoc = "2.8.1"
 
 [dependencies]
-protobuf = { version = "1.4", features = ["with-bytes"] }
-serde = "1.0"
-serde_derive = "1.0"
-toml = "0.4"
-uuid = { version = "0.5", features = ["serde", "v4"] }
+protobuf = { version = "2.8.1", features = ["with-bytes"] }
+serde = "1.0.101"
+serde_derive = "1.0.101"
+toml = "0.5.3"
+uuid = { version = "0.7.4", features = ["serde", "v4"] }

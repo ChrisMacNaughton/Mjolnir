@@ -8,7 +8,7 @@ use crate::proto;
 mod tests {
     use super::*;
 
-    pub use protobuf::core::{parse_from_bytes, Message};
+    pub use crate::{parse_from_bytes, Message};
 
     #[test]
     fn it_serializes_and_deserializes() {
@@ -57,7 +57,7 @@ pub struct Register {
     pub port: u16,
     pub hostname: String,
     pub secret: String,
-    pub public_key: String,
+    pub public_key: Vec<u8>,
     pub uuid: Uuid,
 }
 
@@ -73,7 +73,7 @@ impl Register {
     where
         T1: Into<String>,
         T2: Into<String>,
-        T3: Into<String>,
+        T3: Into<Vec<u8>>,
         T4: Into<Uuid>,
     {
         Register {
