@@ -35,8 +35,8 @@ use crate::server::{connect, get_master_pubkey, run_plugin, server_pubkey, zmq_l
 #[derive(Clone)]
 pub struct Agent {
     // masters: Arc<Vec<Master>>,
-    server_pubkey: String,
-    my_pubkey: String,
+    server_pubkey: [u8; 32],
+    my_pubkey: [u8; 32],
     config: Config,
     my_id: Uuid,
 }
@@ -67,8 +67,8 @@ impl Agent {
                         o.set_operation_type(OpType::PING);
 
                         let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded).unwrap();
-                        match socket.send_msg(msg, 0) {
+                        let msg = Message::from(&encoded);
+                        match socket.send(msg, 0) {
                             Ok(_s) => {}
                             Err(e) => warn!("Problem snding ping: {:?}", e),
                         }
@@ -96,16 +96,16 @@ impl Agent {
                         o.set_operation_type(OpType::PONG);
                         o.set_ping_id(operation.get_ping_id());
                         let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        let msg = Message::from(&encoded);
+                        responder.send(msg, 0)?;
                     }
                     OpType::REMEDIATE => {
                         let mut o = Operation::new();
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        let msg = Message::from(&encoded);
+                        responder.send(msg, 0)?;
 
                         let remediation: Remediation = operation.get_remediate().into();
                         debug!("About to try to remediate {:?}", remediation);
@@ -119,8 +119,8 @@ impl Agent {
                                 o.set_operation_type(OpType::REMEDIATION_RESULT);
                                 o.set_result(res.into());
                                 let encoded = o.write_to_bytes().unwrap();
-                                let msg = Message::from_slice(&encoded).unwrap();
-                                match socket.send_msg(msg, 0) {
+                                let msg = Message::from(&encoded);
+                                match socket.send(msg, 0) {
                                     Ok(_s) => {}
                                     Err(e) => warn!("Problem sending result: {:?}", e),
                                 }
@@ -136,8 +136,8 @@ impl Agent {
                         o.set_operation_type(OpType::ACK);
 
                         let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        let msg = Message::from(&encoded);
+                        responder.send(msg, 0)?;
                     }
                 }
                 Ok(())
@@ -203,14 +203,14 @@ impl Agent {
             self.config.zmq_port,
             get_hostname().unwrap(),
             self.config.secret.clone(),
-            self.my_pubkey.clone(),
+            self.my_pubkey.to_vec(),
             self.my_id.clone(),
         );
         o.set_register(register.into());
         let encoded = o.write_to_bytes().unwrap();
-        let msg = Message::from_slice(&encoded)?;
+        let msg = Message::from(&encoded);
         trace!("Sending message");
-        socket.send_msg(msg, 0)
+        socket.send(msg, 0)
     }
 }
 

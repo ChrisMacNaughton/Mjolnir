@@ -62,7 +62,7 @@ mod tests {
 
 }
 
-pub fn reload<T: AsRef<str>>(master: &Master, pubkey: T) {
+pub fn reload<T: AsRef<[u8]>>(master: &Master, pubkey: T) {
     match connect(&master.ip, master.zmq_port, pubkey.as_ref()) {
         Ok(socket) => {
             let mut o = Operation::new();
@@ -70,8 +70,8 @@ pub fn reload<T: AsRef<str>>(master: &Master, pubkey: T) {
             o.set_operation_type(OpType::RELOAD);
 
             let encoded = o.write_to_bytes().unwrap();
-            let msg = Message::from_slice(&encoded).unwrap();
-            match socket.send_msg(msg, 0) {
+            let msg = Message::from(&encoded);
+            match socket.send(msg, 0) {
                 Ok(_s) => {}
                 Err(e) => println!("Problem sending reload: {:?}", e),
             }
@@ -89,13 +89,13 @@ pub fn bind(config: Config) -> ZmqResult<()> {
     }
 }
 
-fn server_pubkey(config: &Config) -> String {
+fn server_pubkey(config: &Config) -> [u8; 32] {
     let server_pubkey = {
         let mut pubkey_path = config.key_path.clone();
         pubkey_path.push("ecpubkey.pem");
         if let Ok(mut file) = File::open(&pubkey_path) {
-            let mut key = String::new();
-            let _ = file.read_to_string(&mut key);
+            let mut key = [0;32];
+            let _ = file.read(&mut key);
             key
         } else {
             panic!("You need to supply a server's public key, cannot continue");
@@ -104,7 +104,7 @@ fn server_pubkey(config: &Config) -> String {
     server_pubkey
 }
 
-fn connect(host: &str, port: u16, server_publickey: &str) -> ZmqResult<Socket> {
+fn connect(host: &str, port: u16, server_publickey: &[u8]) -> ZmqResult<Socket> {
     // info!("Starting zmq sender with version({:?})", zmq::version());
     let context = zmq::Context::new();
     let requester = context.socket(zmq::REQ)?;
@@ -133,8 +133,8 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
     let mut key_path = config.key_path.clone();
     key_path.push("ecpubkey.key");
     if let Ok(mut file) = File::open(&key_path) {
-        let mut key = String::new();
-        let _ = file.read_to_string(&mut key);
+        let mut key: Vec<u8> = Vec::new();
+        let _ = file.read_to_end(&mut key);
         s.set_curve_secretkey(&key)?;
     } else {
         // info!("Creating new curve keypair");
@@ -142,9 +142,9 @@ fn setup_curve(s: &mut Socket, config: &Config) -> ZmqResult<()> {
         s.set_curve_secretkey(&keypair.secret_key)?;
 
         let mut f = File::create(pubkey_path).unwrap();
-        f.write(keypair.public_key.as_bytes()).unwrap();
+        f.write(&keypair.public_key).unwrap();
         let mut f = File::create(key_path).unwrap();
-        f.write(keypair.secret_key.as_bytes()).unwrap();
+        f.write(&keypair.secret_key).unwrap();
     }
 
     // info!("Server mechanism: {:?}", s.get_mechanism());
@@ -205,7 +205,7 @@ fn zmq_listen(
     }
 }
 
-pub(crate) fn get_master_pubkey(master: &Master) -> Option<String> {
+pub(crate) fn get_master_pubkey(master: &Master) -> Option<Vec<u8>> {
     if let Ok(mut resp) = reqwest::get(&format!(
         "http://{}:{}/pubkey.pem",
         master.ip,
@@ -217,8 +217,8 @@ pub(crate) fn get_master_pubkey(master: &Master) -> Option<String> {
             return None;
         }
 
-        let mut content = String::new();
-        match resp.read_to_string(&mut content) {
+        let mut content = Vec::new();
+        match resp.read_to_end(&mut content) {
             Ok(_size_read) => Some(content),
             Err(e) => {
                 info!("error reading server's public key: {:?}", e);

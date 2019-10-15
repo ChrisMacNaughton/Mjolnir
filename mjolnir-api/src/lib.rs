@@ -2,13 +2,11 @@ use protobuf;
 
 #[macro_use]
 extern crate serde_derive;
-use toml;
 
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-pub use protobuf::core::{Message, parse_from_bytes};
-pub use protobuf::repeated::RepeatedField;
+pub use protobuf::{Message, RepeatedField, parse_from_bytes};
 
 use uuid::Uuid;
 

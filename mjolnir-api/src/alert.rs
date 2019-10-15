@@ -12,7 +12,7 @@ mod tests {
 
     use toml;
 
-    pub use protobuf::core::{Message, parse_from_bytes};
+    use crate::{Message, parse_from_bytes};
 
     #[test]
     fn it_serializes_and_deserializes() {

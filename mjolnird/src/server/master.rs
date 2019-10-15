@@ -170,7 +170,7 @@ struct Agent {
     hostname: String,
     port: u16,
     last_seen: Instant,
-    public_key: String,
+    public_key: Vec<u8>,
     uuid: Uuid,
 }
 
@@ -197,8 +197,8 @@ impl Agent {
                 remediation.alert = Some(alert);
                 o.set_remediate(remediation.into());
                 let encoded = o.write_to_bytes().unwrap();
-                let msg = Message::from_slice(&encoded).unwrap();
-                match socket.send_msg(msg, 0) {
+                let msg = Message::from(&encoded);
+                match socket.send(msg, 0) {
                     Ok(_s) => {}
                     Err(e) => warn!("Problem sending remediation request: {:?}", e),
                 }
@@ -364,8 +364,8 @@ impl Master {
                             o.set_operation_type(OpType::PING);
 
                             let encoded = o.write_to_bytes().unwrap();
-                            let msg = Message::from_slice(&encoded).unwrap();
-                            match socket.send_msg(msg, 0) {
+                            let msg = Message::from(&encoded);
+                            match socket.send(msg, 0) {
                                 Ok(_s) => {}
                                 Err(e) => warn!("Problem sending ping: {:?}", e),
                             }
@@ -542,8 +542,8 @@ impl Master {
                         o.set_operation_type(OpType::PONG);
                         o.set_ping_id(operation.get_ping_id());
                         let encoded = o.write_to_bytes().unwrap();
-                        let msg = Message::from_slice(&encoded)?;
-                        responder.send_msg(msg, 0)?;
+                        let msg = Message::from(&encoded);
+                        responder.send(msg, 0)?;
                     }
                     OpType::REGISTER => {
                         let register: Register = operation.get_register().into();
@@ -554,8 +554,8 @@ impl Master {
                                     let mut o = Operation::new();
                                     o.set_operation_type(OpType::NACK);
                                     let encoded = o.write_to_bytes().unwrap();
-                                    let msg = Message::from_slice(&encoded)?;
-                                    responder.send_msg(msg, 0)?;
+                                    let msg = Message::from(&encoded);
+                                    responder.send(msg, 0)?;
                                 } else {
                                     ack(responder)?;
                                     let agent = Agent {
@@ -850,6 +850,6 @@ fn ack(responder: &Socket) -> ZmqResult<()> {
     o.set_operation_type(OpType::ACK);
 
     let encoded = o.write_to_bytes().unwrap();
-    let msg = Message::from_slice(&encoded)?;
-    responder.send_msg(msg, 0)
+    let msg = Message::from(&encoded);
+    responder.send(msg, 0)
 }
