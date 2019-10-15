@@ -214,7 +214,6 @@ impl Agent {
     }
 }
 
-
 fn remediate(
     remediation: Remediation,
     config: &Config,

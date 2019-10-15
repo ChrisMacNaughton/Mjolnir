@@ -150,6 +150,50 @@ struct ConfigFile {
     default_remediation: Option<Remediation>,
 }
 
+/// Config is designed to hold Mjolnird's config.
+///
+/// An example config may look like:
+/// ```
+/// # use mjolnird::{Config, Mode};
+/// # let input_toml = r#"
+/// [mjolnir]
+///   key_path = "/usr/local/share/mjolnir"
+///   masters = ["$MASTER_IP:11011:12011"]
+///   plugin_path = "/build/target/debug/examples"
+///   secret = "w[4957ha[ruognqp357gf;eruigap47gfa;IRYEgf0a864fo"
+///   default_remediation = { plugin = "slack-notification" }
+///
+/// [master]
+/// bind = "0.0.0.0:11011:12011"
+///
+/// [agent]
+/// bind = "0.0.0.0:11012:12012"
+///
+/// [[pipelines]]
+///
+///   [[pipelines.actions]]
+///     plugin = "clean_disk"
+///     args = ["path=/var/log"]
+///   [[pipelines.actions]]
+///     plugin = "clean_disk"
+///     args = ["path=/"] # The SUPER DANGEROUS version ;-)
+///
+///   [pipelines.trigger]
+///     type = "alertmanager"
+///     name = "full-disk"
+///
+/// [[pipelines]] # Maybe we have another *different* pipeline
+///
+///   [[pipelines.actions]]
+///     plugin = "clean_disk"
+///     args = ["path=/var/log"]
+///
+///   [pipelines.trigger]
+///     type = "alertmanager"
+///     name = "full-disk"
+/// # "#;
+/// # let config = Config::from_toml(&input_toml, Mode::Master, log::Level::Debug);
+/// ```
 #[derive(Clone, Debug)]
 pub struct Config {
     pub masters: Vec<Master>,
@@ -289,6 +333,19 @@ impl<'a, 'b> Config {
             }
         };
 
+
+
+        let log_level = match matches.occurrences_of("debug") {
+                0 => Level::Warn,
+                1 => Level::Info,
+                2 => Level::Debug,
+                3 | _ => Level::Trace,
+            };
+
+        Config::from_file(path, mode, log_level)
+    }
+
+    fn from_file(path: PathBuf, mode: Mode, log_level: log::Level) -> Config {
         info!("Trying to load config from {}", path.display());
 
         let config_raw = match File::open(path) {
@@ -301,7 +358,10 @@ impl<'a, 'b> Config {
                 panic!("Err: {:?}", e);
             }
         };
+        Config::from_toml(&config_raw, mode, log_level)
+    }
 
+    pub fn from_toml(config_raw: &str, mode: Mode, log_level: log::Level) -> Config {
         let root: Root = match toml::from_str(&config_raw) {
             Ok(a) => a,
             Err(e) => panic!("Couldn't parse your config: {:?}", e),
@@ -421,12 +481,7 @@ impl<'a, 'b> Config {
             pipelines: root.pipelines,
             default_remediation: config_file.default_remediation,
             secret: config_file.secret.expect("A shared secret is required"),
-            log_level: match matches.occurrences_of("debug") {
-                0 => Level::Warn,
-                1 => Level::Info,
-                2 => Level::Debug,
-                3 | _ => Level::Trace,
-            },
+            log_level: log_level,
         }
     }
 }

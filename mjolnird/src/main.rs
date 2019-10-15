@@ -1,19 +1,9 @@
 #[macro_use]
-extern crate clap;
-#[macro_use]
 extern crate log;
-
-#[macro_use]
-extern crate serde_derive;
 use simple_logger;
-// workspace members
 
 
-
-mod config;
-mod server;
-
-use crate::config::{Config, Mode, CliMode};
+use mjolnird::{Config, Mode, cli, server};
 
 fn main() {
     println!("Welcome to Mjölnir");
@@ -29,13 +19,4 @@ fn main() {
         _ => {}
     }
     server::bind(config).expect("Couldn't bind to the specified port");
-}
-
-fn cli(config: &Config, mode: CliMode) {
-    info!("Running {:?}", mode);
-    for master in config.masters.iter() {
-        if let Some(key) = server::get_master_pubkey(&master) {
-            server::reload(&master, &key);
-        }
-    }
 }

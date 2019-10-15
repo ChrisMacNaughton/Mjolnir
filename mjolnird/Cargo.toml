@@ -3,6 +3,7 @@ name = "mjolnird"
 version = "0.2.0"
 authors = ["Chris MacNaughton <chris@centaurisolutions.nl>"]
 edition = '2018'
+license = "MIT/Apache-2.0"
 
 [dependencies]
 mjolnir-api = { path = "../mjolnir-api" }
