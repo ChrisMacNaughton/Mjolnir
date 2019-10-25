@@ -37,7 +37,7 @@ mod tests {
         let _ = create_dir_all(&key_path);
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--config=../examples/configs/mjolnir.toml",
+            "--config=examples/configs/mjolnir.toml",
             "master",
         ]);
         let mut config = Config::from_args(args);
