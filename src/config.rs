@@ -102,7 +102,7 @@ mod tests {
     fn it_returns_zmq_address() {
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--config=../examples/configs/mjolnir.toml",
+            "--config=examples/configs/mjolnir.toml",
             "master",
         ]);
         let config = Config::from_args(args);

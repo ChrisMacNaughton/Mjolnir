@@ -1,0 +1,29 @@
+name: mjolnir # you probably want to 'snapcraft register <name>'
+base: core18 # the base snap is the execution environment for this snap
+version: '0.1' # just for humans, typically '1.2+git' or '1.3.2'
+summary: Mjölnir is a tool to solve problems on large numbers of servers. # 79 char long summary
+description: |
+  Mjolnir is designed to be agnostic to issues and the solutions to them;
+  however, it helps server administrators to map incoming alerts into one or
+  more remediations that can be attempted. If a requested remediation fails
+  for any reason, Mjolnir will attempt to run another remediation from the
+  supplied pipeline until there are no more to try. It is suggested to add a
+  plugin that alerts your humans in the final pipeline slot to ensure that the
+  problems are dealt with.
+
+grade: stable # must be 'stable' to release into candidate/stable channels
+confinement: classic # use 'strict' once you have the right plugs and slots
+
+parts:
+  mjolnir:
+    # See 'snapcraft plugins'
+    plugin: rust
+    source: .
+    build-packages:
+      - cmake
+      - libssl-dev
+      - protobuf-compiler
+      - libprotobuf-dev
+      - libsodium-dev
+      - liblzma-dev
+      - pkg-config

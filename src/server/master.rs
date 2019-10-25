@@ -56,7 +56,7 @@ mod tests {
     fn it_validates_pipelines() {
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--config=../examples/configs/mjolnir.toml",
+            "--config=examples/configs/mjolnir.toml",
             "master",
         ]);
         let config = Config::from_args(args);
@@ -113,7 +113,7 @@ mod tests {
     fn it_messages_self() {
         let args = Config::matches().get_matches_from(vec![
             "mjolnird",
-            "--config=../examples/configs/empty.toml",
+            "--config=examples/configs/empty.toml",
             "master",
         ]);
         let config = Config::from_args(args);
