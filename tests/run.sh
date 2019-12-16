@@ -9,10 +9,10 @@ lxc="/snap/bin/lxc"
 
 function finish {
     # echo "Cleaning up: ($?)!"
-    lxc delete -f master > /dev/null 2>&1  || true
+    $lxc delete -f master > /dev/null 2>&1  || true
     for i in $(seq 1 3);
     do
-        lxc delete -f agent-$i > /dev/null 2>&1 || true
+        $lxc delete -f agent-$i > /dev/null 2>&1 || true
     done
     unset master_ip
     # echo "finished cleaning up"
@@ -47,9 +47,9 @@ then
     echo "Setting up Master for build"
 fi
 
-$lxc exec master -- /bin/sh -c "/bin/mkdir -p /build"
+lxc_exec master "/bin/mkdir -p /build"
 # echo "Pushing files into container"
-tar --exclude-vcs --exclude=target -zcf - . | lxc exec --verbose master -- /bin/sh -c "/bin/tar zxf - -C /build"
+tar --exclude-vcs --exclude=target -zcf - . | lxc_exec master "/bin/tar zxf - -C /build"
 
 lxc_exec master "cd /build/mjolnird; /root/.cargo/bin/cargo build --all"  > /dev/null
 lxc_exec master "cd /build; /root/.cargo/bin/cargo build --examples"  > /dev/null
@@ -77,8 +77,8 @@ bind = "0.0.0.0:11012:12012"
     name = "full-disk"
 EOF
 
-lxc file push -p ./config.toml master/usr/local/share/mjolnir/config.toml
-lxc file push -p ./systemd/mjolnird-master.service master/etc/systemd/system/mjolnird-master.service
+$lxc file push -p ./config.toml master/usr/local/share/mjolnir/config.toml
+$lxc file push -p ./systemd/mjolnird-master.service master/etc/systemd/system/mjolnird-master.service
 
 rm config.toml
 
@@ -97,6 +97,10 @@ do
     $lxc copy master agent-$i || true
     $lxc start agent-$i || true
     $lxc file push ./systemd/mjolnird-agent.service agent-$i/etc/systemd/system/mjolnird-agent.service
+    if [ -n ${VERBOSE+x} ];
+    then
+        echo "Spawning agent on agent-$i"
+    fi
     lxc_exec agent-$i "systemctl start mjolnird-agent"
 done
 
